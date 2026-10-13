@@ -55,7 +55,7 @@ struct WorkspaceSessionSidebar: View {
   @ViewBuilder
   private func sessionRow(_ session: WorkspaceSessionSnapshot) -> some View {
     HStack(spacing: 9) {
-      Image(systemName: iconStore.icon(for: session))
+      WorkspaceSessionIconView(icon: iconStore.icon(for: session), size: 14)
         .font(.system(size: 13, weight: .medium))
         .foregroundStyle(customization.configuration.tabForeground.color.opacity(0.8))
         .frame(width: 18)
@@ -217,7 +217,7 @@ private struct WorkspaceSessionWidget: View {
     Button(action: action) {
       VStack(alignment: .leading, spacing: 13) {
         HStack(alignment: .top) {
-          Image(systemName: iconStore.icon(for: session))
+          WorkspaceSessionIconView(icon: iconStore.icon(for: session), size: 16)
             .font(.system(size: 15, weight: .medium))
             .foregroundStyle(configuration.tabForeground.color.opacity(0.8))
           if session.hasActiveBell {
@@ -271,11 +271,22 @@ private struct WorkspaceSessionWidget: View {
     .buttonStyle(.plain)
     .contextMenu {
       Menu("Choose Session Icon") {
-        ForEach(Self.iconChoices, id: \.self) { symbol in
-          Button {
-            iconStore.setIcon(symbol, for: session)
-          } label: {
-            Label(symbol.replacingOccurrences(of: ".", with: " ").capitalized, systemImage: symbol)
+        Section("System icons") {
+          ForEach(Self.iconChoices, id: \.self) { symbol in
+            Button {
+              iconStore.setIcon(symbol, for: session)
+            } label: {
+              Label(symbol.replacingOccurrences(of: ".", with: " ").capitalized, systemImage: symbol)
+            }
+          }
+        }
+        Section("Emoji") {
+          ForEach(Self.emojiChoices, id: \.self) { emoji in
+            Button {
+              iconStore.setEmoji(emoji, for: session)
+            } label: {
+              Text(emoji)
+            }
           }
         }
       }
@@ -289,4 +300,6 @@ private struct WorkspaceSessionWidget: View {
     "terminal", "chevron.left.forwardslash.chevron.right", "folder", "hammer", "shippingbox",
     "sparkles",
   ]
+
+  private static let emojiChoices = ["💻", "🧠", "🧪", "🎨", "📦", "🚀", "🐛", "☕️", "✨", "📁"]
 }

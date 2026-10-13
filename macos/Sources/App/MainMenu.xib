@@ -357,6 +357,12 @@
                                                 <action selector="setWorkspaceTabTheme:" target="bbz-4X-AYv" id="Wsp-Theme-Pixel-Action"/>
                                             </connections>
                                         </menuItem>
+                                        <menuItem title="Gruvbox Material" tag="3" id="Wsp-Theme-Gruvbox">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="setWorkspaceTabTheme:" target="bbz-4X-AYv" id="Wsp-Theme-Gruvbox-Action"/>
+                                            </connections>
+                                        </menuItem>
                                     </items>
                                 </menu>
                             </menuItem>

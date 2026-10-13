@@ -60,7 +60,9 @@ class TitlebarTabsTahoeTerminalWindow: TransparentTitlebarTerminalWindow, NSTool
             // up with messed up tab bars that don't show all tabs.
             self.setupTabBar()
         }
-        viewModel.titleFont = titlebarFont ?? WorkspaceTabTheme.current.titleFont(size: NSFont.systemFontSize)
+        viewModel.titleFont = titlebarFont
+            ?? WorkspaceCustomizationStore.shared.customWorkspaceTitleFont
+            ?? WorkspaceTabTheme.current.titleFont(size: NSFont.systemFontSize)
     }
 
     override func becomeMain() {

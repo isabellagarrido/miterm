@@ -437,11 +437,16 @@ class TerminalWindow: NSWindow {
     // Return a styled representation of our title property.
     var attributedTitle: NSAttributedString? {
         let theme = WorkspaceTabTheme.current
-        guard let titlebarFont = titlebarFont ?? theme.titleFont(size: NSFont.systemFontSize) else { return nil }
+        let workspace = WorkspaceCustomizationStore.shared
+        guard let titlebarFont = titlebarFont
+            ?? workspace.customWorkspaceTitleFont
+            ?? theme.titleFont(size: NSFont.systemFontSize) else { return nil }
 
         var attributes: [NSAttributedString.Key: Any] = [
             .font: titlebarFont,
-            .foregroundColor: theme.titleColor ?? (isKeyWindow ? NSColor.labelColor : NSColor.secondaryLabelColor),
+            .foregroundColor: workspace.customWorkspaceTitleColor
+                ?? theme.titleColor
+                ?? (isKeyWindow ? NSColor.labelColor : NSColor.secondaryLabelColor),
         ]
         if theme == .newspaper {
             attributes[.kern] = 0.4
@@ -455,11 +460,15 @@ class TerminalWindow: NSWindow {
     /// The terminal surface and its Ghostty color configuration are not changed.
     func applyWorkspaceTabTheme() {
         let theme = WorkspaceTabTheme.current
-        let font = titlebarFont ?? theme.titleFont(size: NSFont.systemFontSize)
+        let workspace = WorkspaceCustomizationStore.shared
+        let font = titlebarFont
+            ?? workspace.customWorkspaceTitleFont
+            ?? theme.titleFont(size: NSFont.systemFontSize)
         syncWindowTitleAppearance(font: font ?? NSFont.titleBarFont(ofSize: NSFont.systemFontSize))
         tab.attributedTitle = attributedTitle
 
-        guard let chromeColor = theme.chromeColor, let titlebarContainer else { return }
+        guard let chromeColor = workspace.customWorkspaceChromeColor ?? theme.chromeColor,
+              let titlebarContainer else { return }
         titlebarContainer.wantsLayer = true
         titlebarContainer.layer?.backgroundColor = chromeColor.cgColor
     }

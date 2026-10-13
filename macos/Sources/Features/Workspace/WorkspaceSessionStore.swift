@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import SwiftUI
 
 struct WorkspaceSessionSnapshot: Identifiable {
     let id: ObjectIdentifier
@@ -40,12 +41,51 @@ final class WorkspaceSessionIconStore: ObservableObject {
         icons = UserDefaults.ghostty.dictionary(forKey: Self.defaultsKey) as? [String: String] ?? [:]
     }
 
-    func icon(for session: WorkspaceSessionSnapshot) -> String {
-        icons[session.title] ?? "terminal"
+    func icon(for session: WorkspaceSessionSnapshot) -> WorkspaceSessionIcon {
+        WorkspaceSessionIcon(storedValue: icons[session.title] ?? "terminal")
     }
 
     func setIcon(_ symbol: String, for session: WorkspaceSessionSnapshot) {
         icons[session.title] = symbol
+    }
+
+    func setEmoji(_ emoji: String, for session: WorkspaceSessionSnapshot) {
+        let value = emoji.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard value.count == 1 else { return }
+        icons[session.title] = "emoji:\(value)"
+    }
+}
+
+enum WorkspaceSessionIcon: Equatable {
+    case systemSymbol(String)
+    case emoji(String)
+
+    init(storedValue: String) {
+        if storedValue.hasPrefix("emoji:") {
+            self = .emoji(String(storedValue.dropFirst("emoji:".count)))
+        } else {
+            // Existing saved SF Symbol names remain valid without a migration.
+            self = .systemSymbol(storedValue)
+        }
+    }
+}
+
+struct WorkspaceSessionIconView: View {
+    let icon: WorkspaceSessionIcon
+    var size: CGFloat = 14
+
+    var body: some View {
+        Group {
+            switch icon {
+            case .systemSymbol(let symbol):
+                Image(systemName: symbol)
+            case .emoji(let value):
+                Text(value)
+                    .font(.system(size: size))
+            }
+        }
+        .frame(width: size + 4, height: size + 4)
+        .accessibilityHidden(true)
     }
 }
 

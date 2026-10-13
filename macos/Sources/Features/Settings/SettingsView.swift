@@ -33,15 +33,14 @@ struct SettingsView_Previews: PreviewProvider {
 
 struct WorkspaceThemePickerView: View {
     @EnvironmentObject private var appDelegate: AppDelegate
-    @AppStorage(WorkspaceTabTheme.defaultsKey, store: UserDefaults.ghostty)
-    private var selectedThemeRawValue = WorkspaceTabTheme.current.rawValue
+    @ObservedObject private var customization = WorkspaceCustomizationStore.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 5) {
                 Text("Choose a workspace theme")
                     .font(.system(size: 22, weight: .semibold))
-                Text("Each theme styles the terminal surface and its tab bar.")
+                Text("Choose a workspace appearance. Terminal color themes are selected separately.")
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
             }
@@ -50,22 +49,47 @@ struct WorkspaceThemePickerView: View {
                 ForEach(WorkspaceTabTheme.allCases) { theme in
                     WorkspaceThemeCard(
                         theme: theme,
-                        isSelected: selectedThemeRawValue == theme.rawValue
+                        isSelected: customization.activeProfileID == WorkspaceThemeProfile.presetID(for: theme)
                     ) {
                         appDelegate.selectWorkspaceTabTheme(theme)
                     }
                 }
             }
 
+            if !customization.customProfiles.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Your workspace themes")
+                        .font(.system(size: 13, weight: .semibold))
+                    ScrollView(.horizontal) {
+                        HStack(spacing: 8) {
+                            ForEach(customization.customProfiles) { profile in
+                                Button {
+                                    customization.selectProfile(profile.id)
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        if customization.activeProfileID == profile.id {
+                                            Image(systemName: "checkmark")
+                                        }
+                                        Text(profile.name)
+                                    }
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                        }
+                    }
+                    .scrollIndicators(.hidden)
+                }
+            }
+
             HStack(spacing: 6) {
                 Image(systemName: "info.circle")
-                Text("Minimal follows your Ghostty config. Newspaper and Pixel include matching terminal colors.")
+                Text("Minimal follows your Ghostty config. Newspaper and Pixel include terminal palettes; Gruvbox workspace styling pairs with the separate Gruvbox terminal theme.")
             }
             .font(.system(size: 11))
             .foregroundStyle(.secondary)
         }
         .padding(22)
-        .frame(width: 790, height: 390)
+        .frame(width: 790, height: customization.customProfiles.isEmpty ? 390 : 455)
         .background(Color(nsColor: .windowBackgroundColor))
     }
 }

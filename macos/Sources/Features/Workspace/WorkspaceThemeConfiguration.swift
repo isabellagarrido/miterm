@@ -115,6 +115,17 @@ enum WorkspaceThemeFont: String, CaseIterable, Codable, Identifiable, Hashable {
         case .monospaced: .system(size: size, weight: .medium, design: .monospaced)
         }
     }
+
+    func nsFont(size: CGFloat) -> NSFont {
+        switch self {
+        case .system:
+            .systemFont(ofSize: size, weight: .medium)
+        case .serif:
+            NSFont(name: "Georgia", size: size) ?? .systemFont(ofSize: size, weight: .medium)
+        case .monospaced:
+            NSFont(name: "Menlo", size: size) ?? .monospacedSystemFont(ofSize: size, weight: .medium)
+        }
+    }
 }
 
 struct WorkspaceColor: Codable, Equatable {
@@ -368,7 +379,33 @@ struct WorkspaceThemeConfiguration: Codable, Equatable {
                 verticalPadding: 8,
                 cornerRadius: 2
             )
+        case .gruvbox:
+            .init(
+                baseTheme: theme,
+                tabBackground: .init(hex: 0x32302f),
+                tabForeground: .init(hex: 0xa89984),
+                selectedTabBackground: .init(hex: 0x45403d),
+                selectedTabForeground: .init(hex: 0xd4be98),
+                borderColor: .init(hex: 0x504945),
+                selectedBorderColor: .init(hex: 0xa9b665),
+                font: .monospaced,
+                fontSize: 13,
+                spacing: 5,
+                horizontalPadding: 12,
+                verticalPadding: 8,
+                cornerRadius: 5
+            )
         }
+    }
+}
+
+struct WorkspaceThemeProfile: Codable, Equatable, Identifiable {
+    var id: String
+    var name: String
+    var configuration: WorkspaceThemeConfiguration
+
+    static func presetID(for theme: WorkspaceTabTheme) -> String {
+        "preset:\(theme.rawValue)"
     }
 }
 
@@ -376,11 +413,37 @@ struct WorkspaceThemeConfiguration: Codable, Equatable {
 final class WorkspaceCustomizationStore: ObservableObject {
     static let shared = WorkspaceCustomizationStore()
     static let configurationKey = "WorkspaceThemeConfiguration"
+    nonisolated static let profilesKey = "WorkspaceThemeProfiles"
+    nonisolated static let activeProfileKey = "WorkspaceTheme.ActiveProfile"
     static let presentationKey = "WorkspaceTabPresentation"
     static let sidebarVisibleKey = "WorkspaceSessionSidebarVisible"
 
     @Published private(set) var configuration: WorkspaceThemeConfiguration {
         didSet { saveConfiguration() }
+    }
+
+    @Published private(set) var customProfiles: [WorkspaceThemeProfile]
+    @Published private(set) var activeProfileID: String
+
+    var isCustomProfileActive: Bool {
+        !WorkspaceTabTheme.allCases.contains {
+            WorkspaceThemeProfile.presetID(for: $0) == activeProfileID
+        }
+    }
+
+    var customWorkspaceTitleFont: NSFont? {
+        guard isCustomProfileActive else { return nil }
+        return configuration.font.nsFont(size: CGFloat(configuration.fontSize))
+    }
+
+    var customWorkspaceTitleColor: NSColor? {
+        guard isCustomProfileActive else { return nil }
+        return configuration.tabForeground.nsColor
+    }
+
+    var customWorkspaceChromeColor: NSColor? {
+        guard isCustomProfileActive else { return nil }
+        return configuration.tabBackground.nsColor
     }
 
     @Published private(set) var tabPresentation: WorkspaceTabPresentation {
@@ -397,12 +460,25 @@ final class WorkspaceCustomizationStore: ObservableObject {
     private init() {
         let defaults = UserDefaults.ghostty
         let initialTheme = WorkspaceTabTheme.current
-        if let data = defaults.data(forKey: Self.configurationKey),
+        let savedProfiles: [WorkspaceThemeProfile]
+        if let data = defaults.data(forKey: Self.profilesKey),
+           let decoded = try? JSONDecoder().decode([WorkspaceThemeProfile].self, from: data) {
+            savedProfiles = decoded
+        } else {
+            savedProfiles = []
+        }
+        let savedActiveProfileID = defaults.string(forKey: Self.activeProfileKey)
+            ?? WorkspaceThemeProfile.presetID(for: initialTheme)
+        customProfiles = savedProfiles
+        if let savedProfile = savedProfiles.first(where: { $0.id == savedActiveProfileID }) {
+            configuration = savedProfile.configuration
+        } else if let data = defaults.data(forKey: Self.configurationKey),
            let decoded = try? JSONDecoder().decode(WorkspaceThemeConfiguration.self, from: data) {
             configuration = decoded
         } else {
             configuration = .defaults(for: initialTheme)
         }
+        activeProfileID = savedActiveProfileID
         tabPresentation = defaults.string(forKey: Self.presentationKey)
             .flatMap(WorkspaceTabPresentation.init(rawValue:)) ?? .native
         sidebarVisible = defaults.object(forKey: Self.sidebarVisibleKey) as? Bool ?? false
@@ -412,22 +488,81 @@ final class WorkspaceCustomizationStore: ObservableObject {
         var updated = configuration
         mutation(&updated)
         configuration = updated
+        NotificationCenter.default.post(name: .workspaceTabThemeDidChange, object: nil)
     }
 
     func selectBaseTheme(_ theme: WorkspaceTabTheme) {
-        guard configuration.baseTheme != theme else { return }
+        let presetID = WorkspaceThemeProfile.presetID(for: theme)
+        guard activeProfileID != presetID || configuration.baseTheme != theme else { return }
         if WorkspaceTabTheme.current != theme,
            let appDelegate = NSApp.delegate as? AppDelegate {
             appDelegate.ghostty.setWorkspaceTabTheme(theme)
         } else {
             UserDefaults.ghostty.set(theme.rawValue, forKey: WorkspaceTabTheme.defaultsKey)
         }
+        activeProfileID = presetID
+        UserDefaults.ghostty.set(presetID, forKey: Self.activeProfileKey)
         configuration = .defaults(for: theme)
         NotificationCenter.default.post(name: .workspaceTabThemeDidChange, object: nil)
     }
 
+    func selectProfile(_ id: String) {
+        if let theme = WorkspaceTabTheme.allCases.first(where: {
+            WorkspaceThemeProfile.presetID(for: $0) == id
+        }) {
+            selectBaseTheme(theme)
+            return
+        }
+        guard let profile = customProfiles.first(where: { $0.id == id }) else { return }
+        activeProfileID = profile.id
+        UserDefaults.ghostty.set(profile.id, forKey: Self.activeProfileKey)
+        if WorkspaceTabTheme.current != profile.configuration.baseTheme,
+           let appDelegate = NSApp.delegate as? AppDelegate {
+            appDelegate.ghostty.setWorkspaceTabTheme(profile.configuration.baseTheme)
+        } else {
+            UserDefaults.ghostty.set(
+                profile.configuration.baseTheme.rawValue,
+                forKey: WorkspaceTabTheme.defaultsKey
+            )
+        }
+        configuration = profile.configuration
+        NotificationCenter.default.post(name: .workspaceTabThemeDidChange, object: nil)
+    }
+
+    func saveCurrentProfile(named name: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+        let profile = WorkspaceThemeProfile(
+            id: UUID().uuidString,
+            name: trimmedName,
+            configuration: configuration
+        )
+        customProfiles.append(profile)
+        persistProfiles()
+        activeProfileID = profile.id
+        UserDefaults.ghostty.set(profile.id, forKey: Self.activeProfileKey)
+        NotificationCenter.default.post(name: .workspaceTabThemeDidChange, object: nil)
+    }
+
+    func deleteProfile(_ id: String) {
+        customProfiles.removeAll { $0.id == id }
+        persistProfiles()
+        if activeProfileID == id {
+            selectBaseTheme(configuration.baseTheme)
+        }
+    }
+
+    func renameProfile(_ id: String, to name: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty,
+              let index = customProfiles.firstIndex(where: { $0.id == id }) else { return }
+        customProfiles[index].name = trimmedName
+        persistProfiles()
+    }
+
     func resetCustomizations() {
         configuration = .defaults(for: configuration.baseTheme)
+        NotificationCenter.default.post(name: .workspaceTabThemeDidChange, object: nil)
     }
 
     func setTabPresentation(_ presentation: WorkspaceTabPresentation) {
@@ -463,5 +598,14 @@ final class WorkspaceCustomizationStore: ObservableObject {
         guard let data = try? JSONEncoder().encode(configuration) else { return }
         UserDefaults.ghostty.set(data, forKey: Self.configurationKey)
         UserDefaults.ghostty.set(configuration.baseTheme.rawValue, forKey: WorkspaceTabTheme.defaultsKey)
+        if let index = customProfiles.firstIndex(where: { $0.id == activeProfileID }) {
+            customProfiles[index].configuration = configuration
+            persistProfiles()
+        }
+    }
+
+    private func persistProfiles() {
+        guard let data = try? JSONEncoder().encode(customProfiles) else { return }
+        UserDefaults.ghostty.set(data, forKey: Self.profilesKey)
     }
 }

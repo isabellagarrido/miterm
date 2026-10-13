@@ -34,6 +34,7 @@ struct WorkspaceCustomizationView: View {
   @State private var selectedSection: WorkspaceEditorSection? = .appearance
   @State private var terminalColorDraft = TerminalColorTheme.gruvboxMaterialDarkMedium
   @State private var terminalColorDraftID: String?
+  @State private var newWorkspaceThemeName = ""
 
   var body: some View {
     NavigationSplitView {
@@ -115,10 +116,10 @@ struct WorkspaceCustomizationView: View {
               .overlay {
                 RoundedRectangle(cornerRadius: 9)
                   .strokeBorder(
-                    store.configuration.baseTheme == theme
+                    store.activeProfileID == WorkspaceThemeProfile.presetID(for: theme)
                       ? Color.accentColor
                       : Color(nsColor: .separatorColor),
-                    lineWidth: store.configuration.baseTheme == theme ? 2 : 1
+                    lineWidth: store.activeProfileID == WorkspaceThemeProfile.presetID(for: theme) ? 2 : 1
                   )
               }
             Text(theme.detail)
@@ -128,6 +129,58 @@ struct WorkspaceCustomizationView: View {
           }
           .contentShape(Rectangle())
           .onTapGesture { store.selectBaseTheme(theme) }
+        }
+      }
+
+      HStack(spacing: 10) {
+        TextField("Name a workspace theme", text: $newWorkspaceThemeName)
+          .textFieldStyle(.roundedBorder)
+          .frame(maxWidth: 300)
+        Button("Save Current as Theme") {
+          store.saveCurrentProfile(named: newWorkspaceThemeName)
+          newWorkspaceThemeName = ""
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(newWorkspaceThemeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+      }
+
+      if !store.customProfiles.isEmpty {
+        GroupBox("Saved workspace themes") {
+          VStack(spacing: 8) {
+            ForEach(store.customProfiles) { profile in
+              HStack {
+                Image(systemName: store.activeProfileID == profile.id ? "checkmark.circle.fill" : "circle")
+                  .foregroundStyle(store.activeProfileID == profile.id ? Color.accentColor : Color.secondary)
+                TextField(
+                  "Theme name",
+                  text: Binding(
+                    get: { profile.name },
+                    set: { store.renameProfile(profile.id, to: $0) }
+                  )
+                )
+                .textFieldStyle(.plain)
+                .frame(maxWidth: 220, alignment: .leading)
+                Spacer()
+                if store.activeProfileID != profile.id {
+                  Button("Use") { store.selectProfile(profile.id) }
+                    .buttonStyle(.bordered)
+                } else {
+                  Text("Editing")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                }
+                Button(role: .destructive) {
+                  store.deleteProfile(profile.id)
+                } label: {
+                  Image(systemName: "trash")
+                }
+                .buttonStyle(.borderless)
+                .help("Delete \(profile.name)")
+              }
+              .padding(.vertical, 3)
+            }
+          }
+          .padding(.top, 5)
         }
       }
 
@@ -527,18 +580,29 @@ struct WorkspaceCustomizationView: View {
       } else {
         ForEach(sessions.sessions) { session in
           HStack {
-            Image(systemName: sessionIcons.icon(for: session))
-              .frame(width: 24)
+            WorkspaceSessionIconView(icon: sessionIcons.icon(for: session), size: 17)
             Text(session.title).lineLimit(1)
             Spacer()
             Menu {
-              ForEach(Self.sessionIconChoices, id: \.self) { symbol in
-                Button {
-                  sessionIcons.setIcon(symbol, for: session)
-                } label: {
-                  Label(
-                    symbol.replacingOccurrences(of: ".", with: " ").capitalized, systemImage: symbol
-                  )
+              Section("System icons") {
+                ForEach(Self.sessionIconChoices, id: \.self) { symbol in
+                  Button {
+                    sessionIcons.setIcon(symbol, for: session)
+                  } label: {
+                    Label(
+                      symbol.replacingOccurrences(of: ".", with: " ").capitalized,
+                      systemImage: symbol
+                    )
+                  }
+                }
+              }
+              Section("Emoji") {
+                ForEach(Self.sessionEmojiChoices, id: \.self) { emoji in
+                  Button {
+                    sessionIcons.setEmoji(emoji, for: session)
+                  } label: {
+                    Text(emoji)
+                  }
                 }
               }
             } label: {
@@ -550,7 +614,7 @@ struct WorkspaceCustomizationView: View {
           .background(
             Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
         }
-        Text("Icons are associated with current window titles; duplicate titles share an icon.")
+        Text("Choose a system icon or emoji. Choices are associated with current window titles; duplicate titles share an icon.")
           .font(.system(size: 11))
           .foregroundStyle(.secondary)
       }
@@ -718,6 +782,10 @@ struct WorkspaceCustomizationView: View {
   private static let sessionIconChoices = [
     "terminal", "chevron.left.forwardslash.chevron.right", "folder", "hammer", "shippingbox",
     "sparkles",
+  ]
+
+  private static let sessionEmojiChoices = [
+    "💻", "🧠", "🧪", "🎨", "📦", "🚀", "🐛", "☕️", "✨", "📁", "🛠️", "🌱",
   ]
 
   private static let terminalPaletteLabels = [

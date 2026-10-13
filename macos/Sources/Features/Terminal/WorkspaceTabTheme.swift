@@ -5,6 +5,7 @@ enum WorkspaceTabTheme: String, CaseIterable, Identifiable, Codable, Hashable {
     case minimal
     case newspaper
     case pixel
+    case gruvbox
 
     static let defaultsKey = "WorkspaceTabTheme"
 
@@ -15,6 +16,7 @@ enum WorkspaceTabTheme: String, CaseIterable, Identifiable, Codable, Hashable {
         case .minimal: 0
         case .newspaper: 1
         case .pixel: 2
+        case .gruvbox: 3
         }
     }
 
@@ -23,6 +25,7 @@ enum WorkspaceTabTheme: String, CaseIterable, Identifiable, Codable, Hashable {
         case .minimal: "Minimal"
         case .newspaper: "Newspaper"
         case .pixel: "Pixel"
+        case .gruvbox: "Gruvbox Material"
         }
     }
 
@@ -31,6 +34,7 @@ enum WorkspaceTabTheme: String, CaseIterable, Identifiable, Codable, Hashable {
         case .minimal: "Use your Ghostty terminal colors and standard macOS chrome."
         case .newspaper: "Warm paper colors, earthy ANSI colors, and serif tab titles."
         case .pixel: "Dark green colors, bright accents, and fixed-width tab titles."
+        case .gruvbox: "Warm charcoal surfaces, cream text, and muted green accents."
         }
     }
 
@@ -55,7 +59,7 @@ enum WorkspaceTabTheme: String, CaseIterable, Identifiable, Codable, Hashable {
             ],
         ]
 
-        guard self != .minimal else { return nil }
+        guard self == .newspaper || self == .pixel else { return nil }
         let paletteIndex = self == .newspaper ? 0 : 1
         let values = colors.map { key, variants in "\(key) = #\(variants[paletteIndex])" }
         let palette = palettes[paletteIndex].enumerated().map { "palette = \($0.offset)=#\($0.element)" }
@@ -75,6 +79,8 @@ enum WorkspaceTabTheme: String, CaseIterable, Identifiable, Codable, Hashable {
             NSFont(name: "Georgia", size: size)
         case .pixel:
             NSFont(name: "Menlo-Bold", size: size)
+        case .gruvbox:
+            NSFont(name: "Menlo", size: size)
         }
     }
 
@@ -86,6 +92,8 @@ enum WorkspaceTabTheme: String, CaseIterable, Identifiable, Codable, Hashable {
             NSColor(calibratedRed: 0.19, green: 0.16, blue: 0.12, alpha: 1)
         case .pixel:
             NSColor(calibratedRed: 0.64, green: 0.95, blue: 0.43, alpha: 1)
+        case .gruvbox:
+            NSColor(calibratedRed: 0.83, green: 0.75, blue: 0.60, alpha: 1)
         }
     }
 
@@ -97,6 +105,8 @@ enum WorkspaceTabTheme: String, CaseIterable, Identifiable, Codable, Hashable {
             NSColor(calibratedRed: 0.94, green: 0.90, blue: 0.82, alpha: 1)
         case .pixel:
             NSColor(calibratedRed: 0.10, green: 0.12, blue: 0.10, alpha: 1)
+        case .gruvbox:
+            NSColor(calibratedRed: 0.16, green: 0.16, blue: 0.16, alpha: 1)
         }
     }
 
@@ -108,6 +118,8 @@ enum WorkspaceTabTheme: String, CaseIterable, Identifiable, Codable, Hashable {
             NSColor(calibratedRed: 0.957, green: 0.933, blue: 0.875, alpha: 1)
         case .pixel:
             NSColor(calibratedRed: 0.063, green: 0.082, blue: 0.063, alpha: 1)
+        case .gruvbox:
+            NSColor(calibratedRed: 0.16, green: 0.16, blue: 0.16, alpha: 1)
         }
     }
 
@@ -119,6 +131,8 @@ enum WorkspaceTabTheme: String, CaseIterable, Identifiable, Codable, Hashable {
             NSColor(calibratedRed: 0.204, green: 0.176, blue: 0.141, alpha: 1)
         case .pixel:
             NSColor(calibratedRed: 0.722, green: 0.949, blue: 0.647, alpha: 1)
+        case .gruvbox:
+            NSColor(calibratedRed: 0.83, green: 0.75, blue: 0.60, alpha: 1)
         }
     }
 
@@ -130,6 +144,8 @@ enum WorkspaceTabTheme: String, CaseIterable, Identifiable, Codable, Hashable {
             NSColor(calibratedRed: 0.69, green: 0.29, blue: 0.24, alpha: 1)
         case .pixel:
             NSColor(calibratedRed: 0.55, green: 1, blue: 0.34, alpha: 1)
+        case .gruvbox:
+            NSColor(calibratedRed: 0.66, green: 0.71, blue: 0.40, alpha: 1)
         }
     }
 }
