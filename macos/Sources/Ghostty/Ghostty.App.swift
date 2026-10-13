@@ -47,7 +47,7 @@ extension Ghostty {
         init(configPath: String? = nil) {
             self.configPath = configPath
             // Initialize the global configuration.
-            self.config = Config(at: configPath)
+            self.config = Config(at: configPath, workspaceTabTheme: .current)
             if self.config.config == nil {
                 readiness = .error
                 return
@@ -151,7 +151,7 @@ extension Ghostty {
             }
 
             // Hard or full updates have to reload the full configuration
-            let newConfig = Config(at: configPath)
+            let newConfig = Config(at: configPath, workspaceTabTheme: .current)
             guard newConfig.loaded else {
                 Ghostty.logger.warning("failed to reload configuration")
                 return
@@ -159,6 +159,20 @@ extension Ghostty {
 
             ghostty_app_update_config(app, newConfig.config!)
             /// applied config will be updated in ``Self.configChange(_:target:v:)``
+        }
+
+        /// Apply a workspace preset to the live Ghostty config without changing user config files.
+        func setWorkspaceTabTheme(_ theme: WorkspaceTabTheme) {
+            guard let app, theme != .current else { return }
+
+            UserDefaults.ghostty.set(theme.rawValue, forKey: WorkspaceTabTheme.defaultsKey)
+            let newConfig = Config(at: configPath, workspaceTabTheme: theme)
+            guard newConfig.loaded, let config = newConfig.config else {
+                Ghostty.logger.error("failed to load workspace theme config")
+                return
+            }
+
+            ghostty_app_update_config(app, config)
         }
 
         func reloadConfig(surface: ghostty_surface_t, soft: Bool = false) {
@@ -171,7 +185,7 @@ extension Ghostty {
             // Hard or full updates have to reload the full configuration.
             // NOTE: We never set this on self.config because this is a surface-only
             // config. We free it after the call.
-            let newConfig = Config(at: configPath)
+            let newConfig = Config(at: configPath, workspaceTabTheme: .current)
             guard newConfig.loaded else {
                 Ghostty.logger.warning("failed to reload configuration")
                 return

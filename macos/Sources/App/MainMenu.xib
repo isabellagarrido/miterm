@@ -71,6 +71,7 @@
                 <outlet property="menuToggleVisibility" destination="DOX-wA-ilh" id="iBj-Bc-2bq"/>
                 <outlet property="menuUndo" destination="r83-CV-syt" id="bU9-0b-xgQ"/>
                 <outlet property="menuUseAsDefault" destination="TrB-O8-g8H" id="af4-Jh-2HU"/>
+                <outlet property="menuWorkspaceTabTheme" destination="Wsp-Theme-Menu" id="Wsp-Theme-Out"/>
                 <outlet property="menuZoomSplit" destination="oPd-mn-IEH" id="wTu-jK-egI"/>
             </connections>
         </customObject>
@@ -334,6 +335,38 @@
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="L3L-I8-sqk"/>
+                            <menuItem title="Workspace Theme" id="Wsp-Theme-Item">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Workspace Theme" id="Wsp-Theme-Menu">
+                                    <items>
+                                        <menuItem title="Minimal" tag="0" id="Wsp-Theme-Minimal">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="setWorkspaceTabTheme:" target="bbz-4X-AYv" id="Wsp-Theme-Minimal-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Newspaper" tag="1" id="Wsp-Theme-Newspaper">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="setWorkspaceTabTheme:" target="bbz-4X-AYv" id="Wsp-Theme-Newspaper-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Pixel" tag="2" id="Wsp-Theme-Pixel">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="setWorkspaceTabTheme:" target="bbz-4X-AYv" id="Wsp-Theme-Pixel-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
+                            <menuItem title="Choose Workspace Theme…" id="Wsp-Theme-Picker-Item">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="showWorkspaceThemePicker:" target="bbz-4X-AYv" id="Wsp-Theme-Picker-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="Wsp-Theme-Separator"/>
                             <menuItem title="Command Palette" id="et6-de-Mh7">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>

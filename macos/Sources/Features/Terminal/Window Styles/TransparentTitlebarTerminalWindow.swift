@@ -77,6 +77,8 @@ class TransparentTitlebarTerminalWindow: TerminalWindow {
         } else {
             syncAppearanceVentura(surfaceConfig)
         }
+
+        applyWorkspaceTabTheme()
     }
 
     @available(macOS 26.0, *)

@@ -160,6 +160,8 @@ class TitlebarTabsVenturaTerminalWindow: TerminalWindow {
             // so we only call this if we are opaque.
             updateTabBar()
         }
+
+        applyWorkspaceTabTheme()
     }
 
     // MARK: Tab Bar Styling

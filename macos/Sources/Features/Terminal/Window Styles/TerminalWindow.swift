@@ -38,6 +38,9 @@ class TerminalWindow: NSWindow {
     /// Sets up our tab context menu
     private var tabMenuObserver: NSObjectProtocol?
 
+    /// Updates workspace chrome when the user changes its theme in Settings.
+    private var workspaceTabThemeObserver: NSObjectProtocol?
+
     /// Handles inline tab title editing for this host window.
     private(set) lazy var tabTitleEditor = TabTitleEditor(
         hostWindow: self,
@@ -93,6 +96,14 @@ class TerminalWindow: NSWindow {
         ) { [weak self] n in
             guard let self, let menu = n.object as? NSMenu else { return }
             self.configureTabContextMenuIfNeeded(menu)
+        }
+
+        workspaceTabThemeObserver = NotificationCenter.default.addObserver(
+            forName: .workspaceTabThemeDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.terminalController?.syncAppearance()
         }
 
         // This is required so that window restoration properly creates our tabs
@@ -425,13 +436,32 @@ class TerminalWindow: NSWindow {
 
     // Return a styled representation of our title property.
     var attributedTitle: NSAttributedString? {
-        guard let titlebarFont = titlebarFont else { return nil }
+        let theme = WorkspaceTabTheme.current
+        guard let titlebarFont = titlebarFont ?? theme.titleFont(size: NSFont.systemFontSize) else { return nil }
 
-        let attributes: [NSAttributedString.Key: Any] = [
+        var attributes: [NSAttributedString.Key: Any] = [
             .font: titlebarFont,
-            .foregroundColor: isKeyWindow ? NSColor.labelColor : NSColor.secondaryLabelColor,
+            .foregroundColor: theme.titleColor ?? (isKeyWindow ? NSColor.labelColor : NSColor.secondaryLabelColor),
         ]
+        if theme == .newspaper {
+            attributes[.kern] = 0.4
+        } else if theme == .pixel {
+            attributes[.kern] = 0.8
+        }
         return NSAttributedString(string: title, attributes: attributes)
+    }
+
+    /// Applies presentation-only styles to the window's titlebar and tab title.
+    /// The terminal surface and its Ghostty color configuration are not changed.
+    func applyWorkspaceTabTheme() {
+        let theme = WorkspaceTabTheme.current
+        let font = titlebarFont ?? theme.titleFont(size: NSFont.systemFontSize)
+        syncWindowTitleAppearance(font: font ?? NSFont.titleBarFont(ofSize: NSFont.systemFontSize))
+        tab.attributedTitle = attributedTitle
+
+        guard let chromeColor = theme.chromeColor, let titlebarContainer else { return }
+        titlebarContainer.wantsLayer = true
+        titlebarContainer.layer?.backgroundColor = chromeColor.cgColor
     }
 
     var titlebarContainer: NSView? {
@@ -557,6 +587,13 @@ class TerminalWindow: NSWindow {
             let backgroundColor = preferredBackgroundColor ?? NSColor(surfaceConfig.backgroundColor)
             self.backgroundColor = backgroundColor.withAlphaComponent(1)
         }
+
+        if WorkspaceTabTheme.current.chromeColor == nil {
+            titlebarContainer?.layer?.backgroundColor = nil
+        }
+        if type(of: self) == TerminalWindow.self {
+            applyWorkspaceTabTheme()
+        }
     }
 
     /// The preferred window background color. The current window background color may not be set
@@ -629,6 +666,9 @@ class TerminalWindow: NSWindow {
 
     deinit {
         if let observer = tabMenuObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = workspaceTabThemeObserver {
             NotificationCenter.default.removeObserver(observer)
         }
     }
