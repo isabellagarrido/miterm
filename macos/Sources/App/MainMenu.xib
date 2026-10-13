@@ -366,6 +366,18 @@
                                     <action selector="showWorkspaceThemePicker:" target="bbz-4X-AYv" id="Wsp-Theme-Picker-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Customize Workspace…" id="Wsp-Customize-Item">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="showWorkspaceCustomization:" target="bbz-4X-AYv" id="Wsp-Customize-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Workspace Overview" id="Wsp-Overview-Item">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="showWorkspaceOverview:" target="bbz-4X-AYv" id="Wsp-Overview-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="Wsp-Theme-Separator"/>
                             <menuItem title="Command Palette" id="et6-de-Mh7">
                                 <modifierMask key="keyEquivalentModifierMask"/>

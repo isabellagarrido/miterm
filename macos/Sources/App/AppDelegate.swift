@@ -108,6 +108,10 @@ class AppDelegate: NSObject,
     /// Retains the visual workspace theme picker while it is open.
     private var workspaceThemePickerWindow: NSWindow?
 
+    /// Retains workspace customization and overview windows while they are open.
+    private var workspaceCustomizationWindow: NSWindow?
+    private var workspaceOverviewWindow: NSWindow?
+
     /// The ghostty global state. Only one per process.
     let ghostty: Ghostty.App
 
@@ -988,10 +992,10 @@ class AppDelegate: NSObject,
         selectWorkspaceTabTheme(theme)
     }
 
+    @MainActor
     func selectWorkspaceTabTheme(_ theme: WorkspaceTabTheme) {
-        ghostty.setWorkspaceTabTheme(theme)
+        WorkspaceCustomizationStore.shared.selectBaseTheme(theme)
         updateWorkspaceTabThemeMenu()
-        NotificationCenter.default.post(name: .workspaceTabThemeDidChange, object: nil)
     }
 
     @IBAction func showWorkspaceThemePicker(_ sender: Any?) {
@@ -1012,6 +1016,49 @@ class AppDelegate: NSObject,
 
         workspaceThemePickerWindow?.center()
         workspaceThemePickerWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @IBAction func showWorkspaceCustomization(_ sender: Any?) {
+        if workspaceCustomizationWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 820, height: 620),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Customize Workspace"
+            window.isReleasedWhenClosed = false
+            window.contentView = NSHostingView(
+                rootView: WorkspaceCustomizationView()
+            )
+            workspaceCustomizationWindow = window
+        }
+
+        workspaceCustomizationWindow?.center()
+        workspaceCustomizationWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @IBAction func showWorkspaceOverview(_ sender: Any?) {
+        WorkspaceSessionStore.shared.refresh()
+        if workspaceOverviewWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Workspace Overview"
+            window.isReleasedWhenClosed = false
+            window.contentView = NSHostingView(
+                rootView: WorkspaceOverviewView()
+            )
+            workspaceOverviewWindow = window
+        }
+
+        workspaceOverviewWindow?.center()
+        workspaceOverviewWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
