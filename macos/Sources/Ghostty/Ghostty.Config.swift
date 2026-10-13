@@ -41,13 +41,15 @@ extension Ghostty {
             at path: String? = nil,
             finalize: Bool = true,
             workspaceTabTheme: WorkspaceTabTheme? = nil,
-            terminalTypography: TerminalTypographyConfiguration = .current
+            terminalTypography: TerminalTypographyConfiguration = .current,
+            terminalColorTheme: TerminalColorTheme? = .active
         ) {
             self.init(config: Self.loadConfig(
                 at: path,
                 finalize: finalize,
                 workspaceTabTheme: workspaceTabTheme,
-                terminalTypography: terminalTypography
+                terminalTypography: terminalTypography,
+                terminalColorTheme: terminalColorTheme
             ))
         }
 
@@ -71,7 +73,8 @@ extension Ghostty {
             at path: String?,
             finalize: Bool,
             workspaceTabTheme: WorkspaceTabTheme? = nil,
-            terminalTypography: TerminalTypographyConfiguration = .current
+            terminalTypography: TerminalTypographyConfiguration = .current,
+            terminalColorTheme: TerminalColorTheme? = .active
         ) -> ghostty_config_t? {
             // Initialize the global configuration.
             guard let cfg = ghostty_config_new() else {
@@ -96,7 +99,11 @@ extension Ghostty {
 
             // UI preferences are applied after the user's config without modifying that file.
             // Terminal typography remains independent from workspace theme colors.
-            let overlays = [workspaceTabTheme?.configOverlay, terminalTypography.configOverlay]
+            let overlays = [
+                workspaceTabTheme?.configOverlay,
+                terminalTypography.configOverlay,
+                terminalColorTheme?.configOverlay,
+            ]
                 .compactMap { $0 }
             if !overlays.isEmpty {
                 let overlayURL = FileManager.default.temporaryDirectory

@@ -3,6 +3,7 @@ import SwiftUI
 
 private enum WorkspaceEditorSection: String, CaseIterable, Identifiable {
   case appearance = "Appearance"
+  case colors = "Terminal Colors"
   case terminal = "Terminal"
   case tabs = "Tabs"
   case layout = "Layout"
@@ -14,6 +15,7 @@ private enum WorkspaceEditorSection: String, CaseIterable, Identifiable {
   var symbol: String {
     switch self {
     case .appearance: "paintpalette"
+    case .colors: "paintpalette.fill"
     case .terminal: "terminal"
     case .tabs: "rectangle.topthird.inset.filled"
     case .layout: "rectangle.split.2x1"
@@ -28,7 +30,10 @@ struct WorkspaceCustomizationView: View {
   @ObservedObject private var typography = TerminalTypographyStore.shared
   @ObservedObject private var sessions = WorkspaceSessionStore.shared
   @ObservedObject private var sessionIcons = WorkspaceSessionIconStore.shared
+  @ObservedObject private var terminalColorThemes = TerminalColorThemeStore.shared
   @State private var selectedSection: WorkspaceEditorSection? = .appearance
+  @State private var terminalColorDraft = TerminalColorTheme.gruvboxMaterialDarkMedium
+  @State private var terminalColorDraftID: String?
 
   var body: some View {
     NavigationSplitView {
@@ -56,6 +61,8 @@ struct WorkspaceCustomizationView: View {
     switch selectedSection ?? .appearance {
     case .appearance:
       appearanceSection
+    case .colors:
+      terminalColorsSection
     case .terminal:
       terminalSection
     case .tabs:
@@ -216,6 +223,187 @@ struct WorkspaceCustomizationView: View {
       }
       resetButton
     }
+  }
+
+  private var terminalColorsSection: some View {
+    VStack(alignment: .leading, spacing: 18) {
+      sectionHeader(
+        "Terminal color themes",
+        subtitle:
+          "Choose a saved Ghostty terminal palette or create your own. These colors are separate from tab and workspace styling."
+      )
+
+      HStack(spacing: 12) {
+        Picker(
+          "Active colors",
+          selection: Binding(
+            get: { terminalColorThemes.activeThemeID },
+            set: { selectTerminalColorTheme($0) }
+          )
+        ) {
+          Text("Use workspace theme").tag(TerminalColorTheme.workspaceDefaultID)
+          ForEach(terminalColorThemes.availableThemes) { theme in
+            Text(theme.name).tag(theme.id)
+          }
+        }
+        .frame(maxWidth: 360)
+
+        Button("New theme") { beginNewTerminalColorTheme() }
+        Button("Save theme") { saveTerminalColorDraft() }
+          .buttonStyle(.borderedProminent)
+        if let id = terminalColorDraftID {
+          Button("Delete") {
+            terminalColorThemes.delete(id)
+            terminalColorDraftID = nil
+            terminalColorDraft = .gruvboxMaterialDarkMedium
+          }
+          .disabled(!terminalColorThemes.customThemes.contains(where: { $0.id == id }))
+        }
+      }
+
+      TextField("Theme name", text: $terminalColorDraft.name)
+        .textFieldStyle(.roundedBorder)
+        .frame(maxWidth: 360)
+
+      HStack(alignment: .top, spacing: 24) {
+        VStack(alignment: .leading, spacing: 12) {
+          GroupBox("Base colors") {
+            VStack(alignment: .leading, spacing: 8) {
+              terminalColorPicker("Background", keyPath: \.background)
+              terminalColorPicker("Foreground", keyPath: \.foreground)
+              terminalColorPicker("Cursor", keyPath: \.cursor)
+              terminalColorPicker("Selection background", keyPath: \.selectionBackground)
+              terminalColorPicker("Selection foreground", keyPath: \.selectionForeground)
+            }
+            .padding(.top, 4)
+          }
+
+          GroupBox("ANSI palette") {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], alignment: .leading) {
+              ForEach(0..<16, id: \.self) { index in
+                paletteColorPicker(index)
+              }
+            }
+            .padding(.top, 4)
+          }
+        }
+        .frame(maxWidth: 440, alignment: .leading)
+
+        terminalColorPreview
+          .frame(maxWidth: .infinity, alignment: .topLeading)
+      }
+
+      Text("Color edits preview immediately in open terminals. Save Theme stores the profile for future launches.")
+        .font(.system(size: 12))
+        .foregroundStyle(.secondary)
+    }
+    .onAppear {
+      loadTerminalColorDraft(terminalColorThemes.activeThemeID)
+      if terminalColorThemes.activeThemeID != TerminalColorTheme.workspaceDefaultID {
+        terminalColorThemes.preview(terminalColorDraft)
+      }
+    }
+    .onDisappear { terminalColorThemes.restoreActiveTheme() }
+  }
+
+  private var terminalColorPreview: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      Text("Live terminal preview").font(.headline)
+      VStack(alignment: .leading, spacing: 9) {
+        Text("~/miterm  ❯  claude")
+          .foregroundStyle(terminalColorDraft.palette[2].color)
+        Text("Ready when you are.")
+          .foregroundStyle(terminalColorDraft.foreground.color)
+        Text("let workspace = \"MiTerm\"")
+          .foregroundStyle(terminalColorDraft.palette[4].color)
+        Text("✓  theme loaded")
+          .foregroundStyle(terminalColorDraft.palette[10].color)
+        HStack(spacing: 5) {
+          ForEach(0..<16, id: \.self) { index in
+            RoundedRectangle(cornerRadius: 2)
+              .fill(terminalColorDraft.palette[index].color)
+              .frame(height: 15)
+          }
+        }
+        Rectangle()
+          .fill(terminalColorDraft.cursor.color)
+          .frame(width: 9, height: 18)
+      }
+      .font(.system(size: 13, design: .monospaced))
+      .padding(16)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(terminalColorDraft.background.color, in: RoundedRectangle(cornerRadius: 10))
+      .foregroundStyle(terminalColorDraft.foreground.color)
+    }
+  }
+
+  private func selectTerminalColorTheme(_ id: String) {
+    terminalColorThemes.select(id)
+    loadTerminalColorDraft(id)
+    if id != TerminalColorTheme.workspaceDefaultID {
+      terminalColorThemes.preview(terminalColorDraft)
+    }
+  }
+
+  private func loadTerminalColorDraft(_ id: String) {
+    guard let theme = terminalColorThemes.availableThemes.first(where: { $0.id == id }) else {
+      terminalColorDraft = .gruvboxMaterialDarkMedium
+      terminalColorDraft.name = "My Terminal Theme"
+      terminalColorDraftID = nil
+      return
+    }
+    terminalColorDraft = theme
+    terminalColorDraftID = terminalColorThemes.customThemes.contains(where: { $0.id == id }) ? id : nil
+  }
+
+  private func beginNewTerminalColorTheme() {
+    var theme = terminalColorDraft
+    theme.id = UUID().uuidString
+    theme.name = "My Terminal Theme"
+    terminalColorDraft = theme
+    terminalColorDraftID = nil
+    terminalColorThemes.preview(theme)
+  }
+
+  private func saveTerminalColorDraft() {
+    terminalColorDraftID = terminalColorThemes.save(
+      terminalColorDraft,
+      replacingID: terminalColorDraftID
+    )
+    terminalColorDraft.id = terminalColorDraftID ?? terminalColorDraft.id
+  }
+
+  private func terminalColorPicker(
+    _ title: String,
+    keyPath: WritableKeyPath<TerminalColorTheme, WorkspaceColor>
+  ) -> some View {
+    ColorPicker(
+      title,
+      selection: Binding(
+        get: { terminalColorDraft[keyPath: keyPath].color },
+        set: { color in
+          terminalColorDraft[keyPath: keyPath] = WorkspaceColor(color: color)
+          terminalColorThemes.preview(terminalColorDraft)
+        }
+      ),
+      supportsOpacity: false
+    )
+    .font(.system(size: 12))
+  }
+
+  private func paletteColorPicker(_ index: Int) -> some View {
+    ColorPicker(
+      Self.terminalPaletteLabels[index],
+      selection: Binding(
+        get: { terminalColorDraft.palette[index].color },
+        set: { color in
+          terminalColorDraft.palette[index] = WorkspaceColor(color: color)
+          terminalColorThemes.preview(terminalColorDraft)
+        }
+      ),
+      supportsOpacity: false
+    )
+    .font(.system(size: 11))
   }
 
   private var terminalPreviewFontFamily: String {
@@ -530,5 +718,11 @@ struct WorkspaceCustomizationView: View {
   private static let sessionIconChoices = [
     "terminal", "chevron.left.forwardslash.chevron.right", "folder", "hammer", "shippingbox",
     "sparkles",
+  ]
+
+  private static let terminalPaletteLabels = [
+    "Black", "Red", "Green", "Yellow", "Blue", "Magenta", "Cyan", "White",
+    "Bright black", "Bright red", "Bright green", "Bright yellow", "Bright blue",
+    "Bright magenta", "Bright cyan", "Bright white",
   ]
 }

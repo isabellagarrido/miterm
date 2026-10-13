@@ -190,6 +190,21 @@ extension Ghostty {
             ghostty_app_update_config(app, config)
         }
 
+        /// Apply a saved or previewed terminal color profile through Ghostty's config update path.
+        func setTerminalColorTheme(_ theme: TerminalColorTheme?) {
+            guard let app else { return }
+            let newConfig = Config(
+                at: configPath,
+                workspaceTabTheme: .current,
+                terminalColorTheme: theme
+            )
+            guard newConfig.loaded, let config = newConfig.config else {
+                Ghostty.logger.error("failed to load terminal color theme config")
+                return
+            }
+            ghostty_app_update_config(app, config)
+        }
+
         func reloadConfig(surface: ghostty_surface_t, soft: Bool = false) {
             // Soft updates just call with our existing config
             if soft {

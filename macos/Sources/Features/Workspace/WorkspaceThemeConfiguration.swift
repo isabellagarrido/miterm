@@ -153,6 +153,153 @@ struct WorkspaceColor: Codable, Equatable {
     }
 
     var color: Color { Color(nsColor: nsColor) }
+
+    var hexString: String {
+        let color = nsColor.usingColorSpace(.deviceRGB) ?? .black
+        return String(
+            format: "%02x%02x%02x",
+            Int((color.redComponent * 255).rounded()),
+            Int((color.greenComponent * 255).rounded()),
+            Int((color.blueComponent * 255).rounded())
+        )
+    }
+}
+
+/// Terminal grid colors and ANSI palette, separate from workspace chrome styling.
+struct TerminalColorTheme: Codable, Equatable, Identifiable {
+    var id: String
+    var name: String
+    var background: WorkspaceColor
+    var foreground: WorkspaceColor
+    var cursor: WorkspaceColor
+    var selectionBackground: WorkspaceColor
+    var selectionForeground: WorkspaceColor
+    var palette: [WorkspaceColor]
+
+    static let gruvboxMaterialID = "gruvbox-material-dark-medium"
+    static let workspaceDefaultID = "workspace-default"
+
+    /// Colors are based on the Gruvbox Material VS Code theme's Dark Medium Material variant.
+    /// Source: https://github.com/sainnhe/gruvbox-material-vscode (MIT licensed).
+    static let gruvboxMaterialDarkMedium = TerminalColorTheme(
+        id: gruvboxMaterialID,
+        name: "Gruvbox Material Dark Medium",
+        background: WorkspaceColor(hex: 0x292828),
+        foreground: WorkspaceColor(hex: 0xd4be98),
+        cursor: WorkspaceColor(hex: 0xd4be98),
+        selectionBackground: WorkspaceColor(hex: 0x504945),
+        selectionForeground: WorkspaceColor(hex: 0xd4be98),
+        palette: [
+            0x32302f, 0xea6962, 0xa9b665, 0xd8a657,
+            0x7daea3, 0xd3869b, 0x89b482, 0xd4be98,
+            0x928374, 0xea6962, 0xa9b665, 0xd8a657,
+            0x7daea3, 0xd3869b, 0x89b482, 0xddc7a1,
+        ].map(WorkspaceColor.init(hex:))
+    )
+
+    var configOverlay: String {
+        let primary = [
+            "background = #\(background.hexString)",
+            "foreground = #\(foreground.hexString)",
+            "cursor-color = #\(cursor.hexString)",
+            "selection-background = #\(selectionBackground.hexString)",
+            "selection-foreground = #\(selectionForeground.hexString)",
+        ]
+        let colors = palette.enumerated().map { "palette = \($0.offset)=#\($0.element.hexString)" }
+        return (primary + colors).joined(separator: "\n") + "\n"
+    }
+
+    static var active: TerminalColorTheme? {
+        let defaults = UserDefaults.ghostty
+        guard let id = defaults.string(forKey: TerminalColorThemeStore.activeThemeKey),
+              id != workspaceDefaultID else { return nil }
+        if id == gruvboxMaterialID { return gruvboxMaterialDarkMedium }
+        guard let data = defaults.data(forKey: TerminalColorThemeStore.customThemesKey),
+              let themes = try? JSONDecoder().decode([TerminalColorTheme].self, from: data) else {
+            return nil
+        }
+        return themes.first { $0.id == id }
+    }
+}
+
+@MainActor
+final class TerminalColorThemeStore: ObservableObject {
+    static let shared = TerminalColorThemeStore()
+    nonisolated static let activeThemeKey = "TerminalColorTheme.Active"
+    nonisolated static let customThemesKey = "TerminalColorTheme.Custom"
+
+    @Published private(set) var customThemes: [TerminalColorTheme]
+    @Published private(set) var activeThemeID: String
+    @Published private(set) var previewTheme: TerminalColorTheme?
+
+    var availableThemes: [TerminalColorTheme] {
+        [.gruvboxMaterialDarkMedium] + customThemes
+    }
+
+    private init() {
+        let defaults = UserDefaults.ghostty
+        if let data = defaults.data(forKey: Self.customThemesKey),
+           let decoded = try? JSONDecoder().decode([TerminalColorTheme].self, from: data) {
+            customThemes = decoded
+        } else {
+            customThemes = []
+        }
+        activeThemeID = defaults.string(forKey: Self.activeThemeKey)
+            ?? TerminalColorTheme.workspaceDefaultID
+    }
+
+    func select(_ id: String) {
+        activeThemeID = id
+        UserDefaults.ghostty.set(id, forKey: Self.activeThemeKey)
+        previewTheme = nil
+        applyActiveTheme()
+    }
+
+    func save(_ theme: TerminalColorTheme, replacingID: String? = nil) -> String {
+        var savedTheme = theme
+        let protectedIDs = [TerminalColorTheme.workspaceDefaultID, TerminalColorTheme.gruvboxMaterialID]
+        if protectedIDs.contains(savedTheme.id) {
+            savedTheme.id = UUID().uuidString
+        }
+
+        if let replacingID,
+           let index = customThemes.firstIndex(where: { $0.id == replacingID }) {
+            savedTheme.id = replacingID
+            customThemes[index] = savedTheme
+        } else {
+            savedTheme.id = UUID().uuidString
+            customThemes.append(savedTheme)
+        }
+        persistCustomThemes()
+        select(savedTheme.id)
+        return savedTheme.id
+    }
+
+    func delete(_ id: String) {
+        customThemes.removeAll { $0.id == id }
+        persistCustomThemes()
+        if activeThemeID == id { select(TerminalColorTheme.workspaceDefaultID) }
+    }
+
+    func preview(_ theme: TerminalColorTheme) {
+        previewTheme = theme
+        (NSApp.delegate as? AppDelegate)?.ghostty.setTerminalColorTheme(theme)
+    }
+
+    func restoreActiveTheme() {
+        guard previewTheme != nil else { return }
+        previewTheme = nil
+        applyActiveTheme()
+    }
+
+    private func applyActiveTheme() {
+        (NSApp.delegate as? AppDelegate)?.ghostty.setTerminalColorTheme(TerminalColorTheme.active)
+    }
+
+    private func persistCustomThemes() {
+        guard let data = try? JSONEncoder().encode(customThemes) else { return }
+        UserDefaults.ghostty.set(data, forKey: Self.customThemesKey)
+    }
 }
 
 /// Workspace-only appearance values. Terminal grid colors and font remain Ghostty config.
