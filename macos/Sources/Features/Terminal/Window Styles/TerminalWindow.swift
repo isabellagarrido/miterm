@@ -41,6 +41,11 @@ class TerminalWindow: NSWindow {
     /// Updates workspace chrome when the user changes its theme in Settings.
     private var workspaceTabThemeObserver: NSObjectProtocol?
 
+    /// Updates the native AppKit tab bar when the user switches between native tabs and MiTerm's strip.
+    private var workspaceTabPresentationObserver: NSObjectProtocol?
+    private weak var observedTabGroup: NSWindowTabGroup?
+    private var tabGroupWindowsObserver: NSKeyValueObservation?
+
     /// Handles inline tab title editing for this host window.
     private(set) lazy var tabTitleEditor = TabTitleEditor(
         hostWindow: self,
@@ -106,12 +111,21 @@ class TerminalWindow: NSWindow {
             self?.terminalController?.syncAppearance()
         }
 
+        workspaceTabPresentationObserver = NotificationCenter.default.addObserver(
+            forName: .workspaceTabPresentationDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.applyWorkspaceTabPresentation()
+        }
+
         // This is required so that window restoration properly creates our tabs
         // again. I'm not sure why this is required. If you don't do this, then
         // tabs restore as separate windows.
         tabbingMode = .preferred
         DispatchQueue.main.async {
             self.tabbingMode = .automatic
+            self.applyWorkspaceTabPresentation()
         }
 
         // All new windows are based on the app config at the time of creation.
@@ -212,6 +226,7 @@ class TerminalWindow: NSWindow {
     override func becomeKey() {
         super.becomeKey()
         resetZoomTabButton.contentTintColor = .controlAccentColor
+        observeTabGroupChanges()
     }
 
     override func resignKey() {
@@ -222,6 +237,9 @@ class TerminalWindow: NSWindow {
 
     override func becomeMain() {
         super.becomeMain()
+
+        observeTabGroupChanges()
+        applyWorkspaceTabPresentation()
 
         // Its possible we miss the accessory titlebar call so we check again
         // whenever the window becomes main. Both of these are idempotent.
@@ -263,7 +281,25 @@ class TerminalWindow: NSWindow {
         }
     }
 
+    override func toggleTabBar(_ sender: Any?) {
+        super.toggleTabBar(sender)
+        if WorkspaceCustomizationStore.shared.tabPresentation != .native {
+            WorkspaceCustomizationStore.shared.scheduleTabBarVisibilityUpdate()
+        }
+    }
+
     override func addTitlebarAccessoryViewController(_ childViewController: NSTitlebarAccessoryViewController) {
+        if isTabBar(childViewController),
+           WorkspaceCustomizationStore.shared.tabPresentation != .native {
+            // AppKit may recreate its titlebar tab accessory after changing or
+            // restoring a tab group. Don't attach it while sessions are selected
+            // through the workspace UI; NSWindowTabGroup remains untouched.
+            childViewController.view.isHidden = true
+            observeTabGroupChanges()
+            WorkspaceCustomizationStore.shared.scheduleTabBarVisibilityUpdate()
+            return
+        }
+
         super.addTitlebarAccessoryViewController(childViewController)
 
         // Tab bar is attached as a titlebar accessory view controller (layout bottom). We
@@ -272,6 +308,9 @@ class TerminalWindow: NSWindow {
         if isTabBar(childViewController) {
             childViewController.identifier = Self.tabBarIdentifier
             tabBarDidAppear()
+            DispatchQueue.main.async { [weak self] in
+                self?.applyWorkspaceTabPresentation()
+            }
         }
     }
 
@@ -329,6 +368,59 @@ class TerminalWindow: NSWindow {
         if styleMask.contains(.titled) {
             if titlebarAccessoryViewControllers.firstIndex(of: resetZoomAccessory) == nil {
                 addTitlebarAccessoryViewController(resetZoomAccessory)
+            }
+        }
+    }
+
+    /// AppKit can show its tab bar again when the group gains or loses a window.
+    /// Observe the group itself so the selected presentation is reapplied after
+    /// those structural changes, not just when the preference changes.
+    func observeTabGroupChanges() {
+        guard let group = tabGroup else {
+            observedTabGroup = nil
+            tabGroupWindowsObserver = nil
+            return
+        }
+        guard group !== observedTabGroup else { return }
+
+        tabGroupWindowsObserver = nil
+        observedTabGroup = group
+        tabGroupWindowsObserver = group.observe(\.windows, options: [.initial, .new]) {
+            [weak self] _, _ in
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                WorkspaceCustomizationStore.shared.scheduleTabBarVisibilityUpdate()
+                self.applyWorkspaceTabPresentation()
+            }
+        }
+    }
+
+    /// Keep AppKit's tab group for Ghostty's existing window/session behavior, but
+    /// hide the native tab bar in MiTerm-strip and sidebar-only modes.
+    func applyWorkspaceTabPresentation() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.applyWorkspaceTabPresentation() }
+            return
+        }
+
+        let presentation = WorkspaceCustomizationStore.shared.tabPresentation
+        let showsNativeTabs = presentation == .native
+        WorkspaceCustomizationStore.shared.scheduleTabBarVisibilityUpdate()
+
+        // AppKit can recreate the NSTabBar after changing the selected window or
+        // restoring a tab group. Apply the visual state after that layout settles.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.tabBarView?.isHidden = !showsNativeTabs
+
+            // Existing windows may have been created with Ghostty's legacy
+            // titlebar-tabs class before the preference changed.
+            if let tabsWindow = self as? TitlebarTabsVenturaTerminalWindow {
+                tabsWindow.titlebarTabs = showsNativeTabs
+            }
+
+            if let tabsWindow = self as? TitlebarTabsTahoeTerminalWindow {
+                tabsWindow.setNativeTabBarVisible(showsNativeTabs)
             }
         }
     }
@@ -678,6 +770,9 @@ class TerminalWindow: NSWindow {
             NotificationCenter.default.removeObserver(observer)
         }
         if let observer = workspaceTabThemeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        if let observer = workspaceTabPresentationObserver {
             NotificationCenter.default.removeObserver(observer)
         }
     }

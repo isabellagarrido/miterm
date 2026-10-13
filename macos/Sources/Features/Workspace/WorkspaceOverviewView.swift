@@ -208,6 +208,7 @@ struct WorkspaceOverviewView: View {
 
 private struct WorkspaceSessionWidget: View {
   @ObservedObject private var iconStore = WorkspaceSessionIconStore.shared
+  @State private var isEmojiPickerPresented = false
   let session: WorkspaceSessionSnapshot
   let configuration: WorkspaceThemeConfiguration
   let isDropTarget: Bool
@@ -281,15 +282,14 @@ private struct WorkspaceSessionWidget: View {
           }
         }
         Section("Emoji") {
-          ForEach(Self.emojiChoices, id: \.self) { emoji in
-            Button {
-              iconStore.setEmoji(emoji, for: session)
-            } label: {
-              Text(emoji)
-            }
+          Button("Choose Emoji…", systemImage: "face.smiling") {
+            isEmojiPickerPresented = true
           }
         }
       }
+    }
+    .popover(isPresented: $isEmojiPickerPresented) {
+      WorkspaceSessionEmojiPickerContent(session: session)
     }
     .accessibilityLabel(
       "\(session.title), \(session.isSelected ? "selected" : "inactive"), \(session.activityDescription). Drag to rearrange."
@@ -301,5 +301,4 @@ private struct WorkspaceSessionWidget: View {
     "sparkles",
   ]
 
-  private static let emojiChoices = ["💻", "🧠", "🧪", "🎨", "📦", "🚀", "🐛", "☕️", "✨", "📁"]
 }

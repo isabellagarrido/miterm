@@ -23,15 +23,22 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         case .hidden: "TerminalHiddenTitlebar"
         case .transparent: "TerminalTransparentTitlebar"
         case .tabs:
-#if compiler(>=6.2)
-            if #available(macOS 26.0, *) {
-                "TerminalTabsTitlebarTahoe"
+            // Ghostty's titlebar-tabs window style relocates AppKit's native tab
+            // bar into the titlebar. When MiTerm draws its own strip, use the
+            // transparent titlebar variant so only one tab UI is presented.
+            if WorkspaceCustomizationStore.shared.tabPresentation != .native {
+                "TerminalTransparentTitlebar"
             } else {
-                "TerminalTabsTitlebarVentura"
-            }
+#if compiler(>=6.2)
+                if #available(macOS 26.0, *) {
+                    "TerminalTabsTitlebarTahoe"
+                } else {
+                    "TerminalTabsTitlebarVentura"
+                }
 #else
-            "TerminalTabsTitlebarVentura"
+                "TerminalTabsTitlebarVentura"
 #endif
+            }
         }
 
         return nib

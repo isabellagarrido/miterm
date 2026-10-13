@@ -162,12 +162,14 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             }
             .help("Workspace Overview")
 
-            Button {
-                workspaceCustomization.setSidebarVisible(!workspaceCustomization.sidebarVisible)
-            } label: {
-                Image(systemName: workspaceCustomization.sidebarVisible ? "sidebar.left" : "sidebar.right")
+            if workspaceCustomization.tabPresentation != .sidebarOnly {
+                Button {
+                    workspaceCustomization.setSidebarVisible(!workspaceCustomization.sidebarVisible)
+                } label: {
+                    Image(systemName: workspaceCustomization.sidebarVisible ? "sidebar.left" : "sidebar.right")
+                }
+                .help(workspaceCustomization.sidebarVisible ? "Hide Session Sidebar" : "Show Session Sidebar")
             }
-            .help(workspaceCustomization.sidebarVisible ? "Hide Session Sidebar" : "Show Session Sidebar")
 
             Spacer(minLength: 8)
 

@@ -82,6 +82,7 @@ final class TerminalTypographyStore: ObservableObject {
 enum WorkspaceTabPresentation: String, CaseIterable, Identifiable, Hashable {
     case native
     case custom
+    case sidebarOnly
 
     var id: String { rawValue }
 
@@ -89,6 +90,7 @@ enum WorkspaceTabPresentation: String, CaseIterable, Identifiable, Hashable {
         switch self {
         case .native: "Native tabs"
         case .custom: "MiTerm strip"
+        case .sidebarOnly: "Sidebar only"
         }
     }
 }
@@ -416,7 +418,9 @@ final class WorkspaceCustomizationStore: ObservableObject {
     nonisolated static let profilesKey = "WorkspaceThemeProfiles"
     nonisolated static let activeProfileKey = "WorkspaceTheme.ActiveProfile"
     static let presentationKey = "WorkspaceTabPresentation"
+    private static let presentationMigrationKey = "WorkspaceTabPresentationSidebarOnlyMigration"
     static let sidebarVisibleKey = "WorkspaceSessionSidebarVisible"
+    private var tabBarVisibilityUpdateScheduled = false
 
     @Published private(set) var configuration: WorkspaceThemeConfiguration {
         didSet { saveConfiguration() }
@@ -479,9 +483,24 @@ final class WorkspaceCustomizationStore: ObservableObject {
             configuration = .defaults(for: initialTheme)
         }
         activeProfileID = savedActiveProfileID
-        tabPresentation = defaults.string(forKey: Self.presentationKey)
-            .flatMap(WorkspaceTabPresentation.init(rawValue:)) ?? .native
-        sidebarVisible = defaults.object(forKey: Self.sidebarVisibleKey) as? Bool ?? false
+        let initialTabPresentation: WorkspaceTabPresentation
+        if defaults.bool(forKey: Self.presentationMigrationKey) {
+            initialTabPresentation = defaults.string(forKey: Self.presentationKey)
+                .flatMap(WorkspaceTabPresentation.init(rawValue:)) ?? .sidebarOnly
+        } else {
+            // Session navigation now lives in the workspace sidebar. Existing
+            // installations should start with both tab bars hidden as well.
+            initialTabPresentation = .sidebarOnly
+            defaults.set(WorkspaceTabPresentation.sidebarOnly.rawValue, forKey: Self.presentationKey)
+            defaults.set(true, forKey: Self.presentationMigrationKey)
+        }
+        tabPresentation = initialTabPresentation
+        sidebarVisible = initialTabPresentation == .sidebarOnly
+            ? true
+            : defaults.object(forKey: Self.sidebarVisibleKey) as? Bool ?? false
+        if initialTabPresentation == .sidebarOnly {
+            defaults.set(true, forKey: Self.sidebarVisibleKey)
+        }
     }
 
     func update(_ mutation: (inout WorkspaceThemeConfiguration) -> Void) {
@@ -567,12 +586,34 @@ final class WorkspaceCustomizationStore: ObservableObject {
 
     func setTabPresentation(_ presentation: WorkspaceTabPresentation) {
         guard presentation != tabPresentation else { return }
+        if presentation == .sidebarOnly {
+            sidebarVisible = true
+        }
         tabPresentation = presentation
+        NotificationCenter.default.post(name: .workspaceTabPresentationDidChange, object: nil)
         WorkspaceSessionStore.shared.refresh()
     }
 
     func setSidebarVisible(_ visible: Bool) {
+        guard visible || tabPresentation != .sidebarOnly else { return }
         sidebarVisible = visible
+    }
+
+    /// Reconcile AppKit's tab-bar visibility after it updates a tab group.
+    /// AppKit can recreate or show its native bar during group mutations, so
+    /// defer and coalesce these requests until that update has settled.
+    func scheduleTabBarVisibilityUpdate() {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.scheduleTabBarVisibilityUpdate() }
+            return
+        }
+        guard !tabBarVisibilityUpdateScheduled else { return }
+        tabBarVisibilityUpdateScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(60)) { [weak self] in
+            guard let self else { return }
+            self.tabBarVisibilityUpdateScheduled = false
+            self.applyTabBarVisibility()
+        }
     }
 
     func applyTabBarVisibility() {
@@ -585,12 +626,11 @@ final class WorkspaceCustomizationStore: ObservableObject {
         for controller in TerminalController.all {
             guard let window = controller.window,
                   let group = window.tabGroup,
-                  group.windows.count > 1,
                   handledGroups.insert(ObjectIdentifier(group)).inserted else { continue }
 
-            let wantsNativeTabBar = tabPresentation == .native
+            let wantsNativeTabBar = tabPresentation == .native && group.windows.count > 1
             guard group.isTabBarVisible != wantsNativeTabBar else { continue }
-            window.toggleTabBar(nil)
+            (group.selectedWindow ?? window).toggleTabBar(nil)
         }
     }
 

@@ -152,4 +152,5 @@ enum WorkspaceTabTheme: String, CaseIterable, Identifiable, Codable, Hashable {
 
 extension Notification.Name {
     static let workspaceTabThemeDidChange = Notification.Name("WorkspaceTabThemeDidChange")
+    static let workspaceTabPresentationDidChange = Notification.Name("WorkspaceTabPresentationDidChange")
 }

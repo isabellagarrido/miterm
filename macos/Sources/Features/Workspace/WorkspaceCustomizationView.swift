@@ -25,6 +25,83 @@ private enum WorkspaceEditorSection: String, CaseIterable, Identifiable {
   }
 }
 
+private struct WorkspaceColorPickerRow: View {
+  let title: String
+  @Binding var color: WorkspaceColor
+
+  @State private var hexText: String
+  @State private var isInvalid = false
+  @FocusState private var isHexFieldFocused: Bool
+
+  init(_ title: String, color: Binding<WorkspaceColor>) {
+    self.title = title
+    self._color = color
+    self._hexText = State(initialValue: "#\(color.wrappedValue.hexString.uppercased())")
+  }
+
+  var body: some View {
+    HStack(spacing: 10) {
+      ColorPicker(
+        title,
+        selection: Binding(
+          get: { color.color },
+          set: { color = WorkspaceColor(color: $0) }
+        ),
+        supportsOpacity: false
+      )
+      .font(.system(size: 12))
+
+      TextField("#RRGGBB", text: $hexText)
+        .font(.system(size: 11, design: .monospaced))
+        .textFieldStyle(.roundedBorder)
+        .frame(width: 92)
+        .focused($isHexFieldFocused)
+        .accessibilityLabel("\(title) hex color")
+        .help(isInvalid ? "Enter six hexadecimal digits, such as #AABBCC." : "Enter a hex color, such as #AABBCC.")
+        .onChange(of: hexText) { newValue in
+          isInvalid = false
+          guard let hex = Self.parseHex(newValue) else { return }
+          color = WorkspaceColor(hex: hex)
+        }
+        .onChange(of: color) { newColor in
+          guard !isHexFieldFocused else { return }
+          hexText = "#\(newColor.hexString.uppercased())"
+          isInvalid = false
+        }
+        .onChange(of: isHexFieldFocused) { isFocused in
+          if !isFocused { commitHex() }
+        }
+        .onSubmit(commitHex)
+
+      if isInvalid {
+        Image(systemName: "exclamationmark.circle.fill")
+          .foregroundStyle(.red)
+          .help("Enter six hexadecimal digits, such as #AABBCC.")
+      }
+    }
+  }
+
+  private func commitHex() {
+    guard let hex = Self.parseHex(hexText) else {
+      isInvalid = true
+      return
+    }
+    color = WorkspaceColor(hex: hex)
+    hexText = "#\(color.hexString.uppercased())"
+    isInvalid = false
+  }
+
+  private static func parseHex(_ text: String) -> UInt32? {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    let digits = trimmed.hasPrefix("#") ? String(trimmed.dropFirst()) : trimmed
+    guard digits.count == 6,
+          digits.unicodeScalars.allSatisfy({
+            CharacterSet(charactersIn: "0123456789abcdefABCDEF").contains($0)
+          }) else { return nil }
+    return UInt32(digits, radix: 16)
+  }
+}
+
 struct WorkspaceCustomizationView: View {
   @ObservedObject private var store = WorkspaceCustomizationStore.shared
   @ObservedObject private var typography = TerminalTypographyStore.shared
@@ -35,6 +112,7 @@ struct WorkspaceCustomizationView: View {
   @State private var terminalColorDraft = TerminalColorTheme.gruvboxMaterialDarkMedium
   @State private var terminalColorDraftID: String?
   @State private var newWorkspaceThemeName = ""
+  @State private var emojiPickerSessionID: ObjectIdentifier?
 
   var body: some View {
     NavigationSplitView {
@@ -430,33 +508,29 @@ struct WorkspaceCustomizationView: View {
     _ title: String,
     keyPath: WritableKeyPath<TerminalColorTheme, WorkspaceColor>
   ) -> some View {
-    ColorPicker(
+    WorkspaceColorPickerRow(
       title,
-      selection: Binding(
-        get: { terminalColorDraft[keyPath: keyPath].color },
+      color: Binding(
+        get: { terminalColorDraft[keyPath: keyPath] },
         set: { color in
-          terminalColorDraft[keyPath: keyPath] = WorkspaceColor(color: color)
+          terminalColorDraft[keyPath: keyPath] = color
           terminalColorThemes.preview(terminalColorDraft)
         }
-      ),
-      supportsOpacity: false
+      )
     )
-    .font(.system(size: 12))
   }
 
   private func paletteColorPicker(_ index: Int) -> some View {
-    ColorPicker(
+    WorkspaceColorPickerRow(
       Self.terminalPaletteLabels[index],
-      selection: Binding(
-        get: { terminalColorDraft.palette[index].color },
+      color: Binding(
+        get: { terminalColorDraft.palette[index] },
         set: { color in
-          terminalColorDraft.palette[index] = WorkspaceColor(color: color)
+          terminalColorDraft.palette[index] = color
           terminalColorThemes.preview(terminalColorDraft)
         }
-      ),
-      supportsOpacity: false
+      )
     )
-    .font(.system(size: 11))
   }
 
   private var terminalPreviewFontFamily: String {
@@ -478,7 +552,7 @@ struct WorkspaceCustomizationView: View {
       sectionHeader(
         "Tabs",
         subtitle:
-          "Customize the optional MiTerm strip. Native macOS tabs remain available as a fallback.")
+          "Choose where session switching appears. Sidebar only hides both tab bars while keeping Ghostty's native tab groups for restoration.")
       Picker(
         "Tab display",
         selection: Binding(
@@ -544,6 +618,12 @@ struct WorkspaceCustomizationView: View {
           get: { store.sidebarVisible },
           set: { store.setSidebarVisible($0) }
         ))
+        .disabled(store.tabPresentation == .sidebarOnly)
+      if store.tabPresentation == .sidebarOnly {
+        Text("The sidebar stays visible while Sidebar only is selected so you can switch sessions.")
+          .font(.caption)
+          .foregroundStyle(.secondary)
+      }
       GroupBox("Split the focused terminal") {
         HStack(spacing: 12) {
           workspaceAction("Split right", symbol: "rectangle.split.2x1") { controller in
@@ -559,7 +639,7 @@ struct WorkspaceCustomizationView: View {
         .padding(.top, 8)
       }
       Text(
-        "Reordering and cross-group movement use AppKit's native tab controls. The MiTerm strip currently switches tabs only; it does not simulate a drag reorder because NSWindowTabGroup does not expose a safe custom reorder API."
+        "Native tabs remain available as a presentation option. The MiTerm strip switches tabs but does not simulate drag reordering; Ghostty continues to manage the underlying AppKit tab groups."
       )
       .font(.system(size: 12))
       .foregroundStyle(.secondary)
@@ -572,7 +652,7 @@ struct WorkspaceCustomizationView: View {
       sectionHeader(
         "Session icons",
         subtitle:
-          "Choose a workspace icon for each open session. Icon choices are saved between launches.")
+          "Choose a workspace icon for each terminal tab. Choices are saved between launches.")
       if sessions.sessions.isEmpty {
         Text("Open a terminal window or tab to customize its icon.")
           .font(.system(size: 13))
@@ -596,25 +676,26 @@ struct WorkspaceCustomizationView: View {
                   }
                 }
               }
-              Section("Emoji") {
-                ForEach(Self.sessionEmojiChoices, id: \.self) { emoji in
-                  Button {
-                    sessionIcons.setEmoji(emoji, for: session)
-                  } label: {
-                    Text(emoji)
-                  }
-                }
-              }
             } label: {
-              Label("Choose icon", systemImage: "chevron.up.chevron.down")
+              Label("System icon", systemImage: "chevron.up.chevron.down")
             }
             .menuStyle(.borderlessButton)
+            Button("Emoji…") { emojiPickerSessionID = session.id }
+              .buttonStyle(.borderless)
+              .popover(
+                isPresented: Binding(
+                  get: { emojiPickerSessionID == session.id },
+                  set: { if !$0 { emojiPickerSessionID = nil } }
+                )
+              ) {
+                WorkspaceSessionEmojiPickerContent(session: session)
+              }
           }
           .padding(10)
           .background(
             Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
         }
-        Text("Choose a system icon or emoji. Choices are associated with current window titles; duplicate titles share an icon.")
+        Text("Each terminal tab has its own saved icon. Open Emoji & Symbols to choose from the full macOS emoji set.")
           .font(.system(size: 11))
           .foregroundStyle(.secondary)
       }
@@ -702,14 +783,13 @@ struct WorkspaceCustomizationView: View {
     _ title: String,
     keyPath: WritableKeyPath<WorkspaceThemeConfiguration, WorkspaceColor>
   ) -> some View {
-    ColorPicker(
+    WorkspaceColorPickerRow(
       title,
-      selection: Binding(
-        get: { store.configuration[keyPath: keyPath].color },
-        set: { color in store.update { $0[keyPath: keyPath] = WorkspaceColor(color: color) } }
-      ), supportsOpacity: false
+      color: Binding(
+        get: { store.configuration[keyPath: keyPath] },
+        set: { color in store.update { $0[keyPath: keyPath] = color } }
+      )
     )
-    .font(.system(size: 12))
   }
 
   private func slider(
@@ -782,10 +862,6 @@ struct WorkspaceCustomizationView: View {
   private static let sessionIconChoices = [
     "terminal", "chevron.left.forwardslash.chevron.right", "folder", "hammer", "shippingbox",
     "sparkles",
-  ]
-
-  private static let sessionEmojiChoices = [
-    "💻", "🧠", "🧪", "🎨", "📦", "🚀", "🐛", "☕️", "✨", "📁", "🛠️", "🌱",
   ]
 
   private static let terminalPaletteLabels = [

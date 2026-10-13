@@ -4,6 +4,9 @@ import SwiftUI
 
 struct WorkspaceSessionSnapshot: Identifiable {
     let id: ObjectIdentifier
+    /// The first Ghostty surface UUID survives Ghostty's window-state restoration,
+    /// so icon preferences can distinguish tabs (even when their titles match).
+    let iconStorageKey: String
     let windowReference: Weak<NSWindow>
     let groupID: ObjectIdentifier?
     let title: String
@@ -15,6 +18,8 @@ struct WorkspaceSessionSnapshot: Identifiable {
 
     init(window: NSWindow, controller: TerminalController?) {
         id = ObjectIdentifier(window)
+        iconStorageKey = controller?.surfaceTree.first.map { "session:\($0.id.uuidString)" }
+            ?? "title:\(window.title)"
         windowReference = Weak(window)
         groupID = window.tabGroup.map(ObjectIdentifier.init)
         title = window.title.isEmpty ? "Terminal" : window.title
@@ -42,17 +47,22 @@ final class WorkspaceSessionIconStore: ObservableObject {
     }
 
     func icon(for session: WorkspaceSessionSnapshot) -> WorkspaceSessionIcon {
-        WorkspaceSessionIcon(storedValue: icons[session.title] ?? "terminal")
+        WorkspaceSessionIcon(
+            storedValue: icons[session.iconStorageKey] ?? icons["title:\(session.title)"]
+                ?? icons[session.title] ?? "terminal"
+        )
     }
 
     func setIcon(_ symbol: String, for session: WorkspaceSessionSnapshot) {
-        icons[session.title] = symbol
+        icons[session.iconStorageKey] = symbol
     }
 
     func setEmoji(_ emoji: String, for session: WorkspaceSessionSnapshot) {
         let value = emoji.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard value.count == 1 else { return }
-        icons[session.title] = "emoji:\(value)"
+        guard value.count == 1, value.unicodeScalars.contains(where: { $0.properties.isEmoji }) else {
+            return
+        }
+        icons[session.iconStorageKey] = "emoji:\(value)"
     }
 }
 
@@ -86,6 +96,50 @@ struct WorkspaceSessionIconView: View {
         }
         .frame(width: size + 4, height: size + 4)
         .accessibilityHidden(true)
+    }
+}
+
+/// A small editor backed by macOS's native character palette. The palette inserts
+/// directly into the focused field, so no bundled emoji catalog is required.
+struct WorkspaceSessionEmojiPickerContent: View {
+    @ObservedObject private var iconStore = WorkspaceSessionIconStore.shared
+    @FocusState private var emojiFieldIsFocused: Bool
+    @State private var emojiDraft = ""
+
+    let session: WorkspaceSessionSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Session emoji")
+                .font(.headline)
+            TextField("Type an emoji or pick one", text: $emojiDraft)
+                .textFieldStyle(.roundedBorder)
+                .focused($emojiFieldIsFocused)
+                .onChange(of: emojiDraft) { value in
+                    guard value.count == 1,
+                        value.unicodeScalars.contains(where: { $0.properties.isEmoji })
+                    else { return }
+                    iconStore.setEmoji(value, for: session)
+                    emojiDraft = ""
+                }
+            Button {
+                emojiFieldIsFocused = true
+                DispatchQueue.main.async {
+                    NSApp.orderFrontCharacterPalette(self)
+                }
+            } label: {
+                Label("Open macOS Emoji & Symbols", systemImage: "face.smiling")
+            }
+            .buttonStyle(.bordered)
+            Text("The selected emoji is saved for this terminal tab.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(14)
+        .frame(width: 280)
+        .onAppear {
+            DispatchQueue.main.async { emojiFieldIsFocused = true }
+        }
     }
 }
 
@@ -150,7 +204,8 @@ final class WorkspaceSessionStore: ObservableObject {
             return WorkspaceTabItem(
                 id: String(describing: snapshot.id),
                 title: snapshot.title,
-                isSelected: snapshot.isSelected
+                isSelected: snapshot.isSelected,
+                session: snapshot
             ) { [weak self] in
                 self?.selectSession(snapshot.id)
             }
@@ -180,7 +235,20 @@ final class WorkspaceSessionStore: ObservableObject {
             let selectedObservation = group.observe(\.selectedWindow, options: [.new]) { [weak self] _, _ in
                 Task { @MainActor [weak self] in self?.refresh() }
             }
-            tabGroupObservations[id] = [windowsObservation, selectedObservation]
+            // AppKit can recreate its titlebar tab bar after a tab change or restore.
+            // Keep the native bar in sync with MiTerm's Native/MiTerm strip preference.
+            let visibilityObservation = group.observe(\.isTabBarVisible, options: [.new]) {
+                [weak self] _, _ in
+                Task { @MainActor [weak self] in
+                    guard self != nil else { return }
+                    WorkspaceCustomizationStore.shared.applyTabBarVisibility()
+                }
+            }
+            tabGroupObservations[id] = [
+                windowsObservation,
+                selectedObservation,
+                visibilityObservation,
+            ]
         }
 
         tabGroupObservations = tabGroupObservations.filter { activeGroupIDs.contains($0.key) }
