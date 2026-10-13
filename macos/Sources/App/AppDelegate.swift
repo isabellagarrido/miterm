@@ -1022,7 +1022,7 @@ class AppDelegate: NSObject,
     @IBAction func showWorkspaceCustomization(_ sender: Any?) {
         if workspaceCustomizationWindow == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 820, height: 620),
+                contentRect: NSRect(x: 0, y: 0, width: 1020, height: 700),
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
@@ -1035,6 +1035,7 @@ class AppDelegate: NSObject,
             workspaceCustomizationWindow = window
         }
 
+        workspaceCustomizationWindow?.setContentSize(NSSize(width: 1020, height: 700))
         workspaceCustomizationWindow?.center()
         workspaceCustomizationWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

@@ -40,12 +40,14 @@ extension Ghostty {
         convenience init(
             at path: String? = nil,
             finalize: Bool = true,
-            workspaceTabTheme: WorkspaceTabTheme? = nil
+            workspaceTabTheme: WorkspaceTabTheme? = nil,
+            terminalTypography: TerminalTypographyConfiguration = .current
         ) {
             self.init(config: Self.loadConfig(
                 at: path,
                 finalize: finalize,
-                workspaceTabTheme: workspaceTabTheme
+                workspaceTabTheme: workspaceTabTheme,
+                terminalTypography: terminalTypography
             ))
         }
 
@@ -68,7 +70,8 @@ extension Ghostty {
         static func loadConfig(
             at path: String?,
             finalize: Bool,
-            workspaceTabTheme: WorkspaceTabTheme? = nil
+            workspaceTabTheme: WorkspaceTabTheme? = nil,
+            terminalTypography: TerminalTypographyConfiguration = .current
         ) -> ghostty_config_t? {
             // Initialize the global configuration.
             guard let cfg = ghostty_config_new() else {
@@ -91,14 +94,16 @@ extension Ghostty {
 
             ghostty_config_load_recursive_files(cfg)
 
-            // Workspace presets only override terminal presentation colors. Loading the overlay
-            // last keeps it separate from (and higher priority than) the user's config without
-            // modifying that config file.
-            if let overlay = workspaceTabTheme?.configOverlay {
+            // UI preferences are applied after the user's config without modifying that file.
+            // Terminal typography remains independent from workspace theme colors.
+            let overlays = [workspaceTabTheme?.configOverlay, terminalTypography.configOverlay]
+                .compactMap { $0 }
+            if !overlays.isEmpty {
                 let overlayURL = FileManager.default.temporaryDirectory
                     .appendingPathComponent("ghostty-workspace-theme-\(UUID().uuidString).conf")
                 do {
-                    try overlay.write(to: overlayURL, atomically: true, encoding: .utf8)
+                    try overlays.joined(separator: "\n")
+                        .write(to: overlayURL, atomically: true, encoding: .utf8)
                     ghostty_config_load_file(cfg, overlayURL.path)
                     try FileManager.default.removeItem(at: overlayURL)
                 } catch {

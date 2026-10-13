@@ -28,6 +28,28 @@ struct WorkspaceSessionSnapshot: Identifiable {
 }
 
 @MainActor
+final class WorkspaceSessionIconStore: ObservableObject {
+    static let shared = WorkspaceSessionIconStore()
+    private static let defaultsKey = "WorkspaceSessionIconsByTitle"
+
+    @Published private var icons: [String: String] {
+        didSet { UserDefaults.ghostty.set(icons, forKey: Self.defaultsKey) }
+    }
+
+    private init() {
+        icons = UserDefaults.ghostty.dictionary(forKey: Self.defaultsKey) as? [String: String] ?? [:]
+    }
+
+    func icon(for session: WorkspaceSessionSnapshot) -> String {
+        icons[session.title] ?? "terminal"
+    }
+
+    func setIcon(_ symbol: String, for session: WorkspaceSessionSnapshot) {
+        icons[session.title] = symbol
+    }
+}
+
+@MainActor
 final class WorkspaceSessionStore: ObservableObject {
     static let shared = WorkspaceSessionStore()
 

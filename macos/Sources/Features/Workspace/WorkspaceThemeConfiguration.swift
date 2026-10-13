@@ -1,6 +1,84 @@
 import AppKit
 import SwiftUI
 
+/// Terminal-grid typography settings. These remain independent from workspace chrome tokens.
+struct TerminalTypographyConfiguration: Codable, Equatable {
+    var fontFamily: String?
+    var fontSize: Double?
+    var characterSpacingPercent: Double?
+    var lineSpacingPercent: Double?
+    var horizontalPadding: Double?
+    var verticalPadding: Double?
+
+    static let defaultsKey = "TerminalTypographyConfiguration"
+
+    static let defaults = Self(
+        fontFamily: nil,
+        fontSize: nil,
+        characterSpacingPercent: nil,
+        lineSpacingPercent: nil,
+        horizontalPadding: nil,
+        verticalPadding: nil
+    )
+
+    static var current: Self {
+        guard let data = UserDefaults.ghostty.data(forKey: defaultsKey),
+              let decoded = try? JSONDecoder().decode(Self.self, from: data) else {
+            return .defaults
+        }
+        return decoded
+    }
+
+    var configOverlay: String? {
+        var lines: [String] = []
+        if let fontFamily,
+           !fontFamily.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           NSFont(name: fontFamily, size: 13)?.isFixedPitch == true {
+            let escaped = fontFamily.replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "\"", with: "\\\"")
+            lines.append("font-family = \"\(escaped)\"")
+        }
+        if let fontSize { lines.append("font-size = \(fontSize)") }
+        if let characterSpacingPercent {
+            lines.append("adjust-cell-width = \(characterSpacingPercent)%")
+        }
+        if let lineSpacingPercent { lines.append("adjust-cell-height = \(lineSpacingPercent)%") }
+        if let horizontalPadding { lines.append("window-padding-x = \(Int(horizontalPadding.rounded()))") }
+        if let verticalPadding { lines.append("window-padding-y = \(Int(verticalPadding.rounded()))") }
+        guard !lines.isEmpty else { return nil }
+        return lines.joined(separator: "\n") + "\n"
+    }
+}
+
+@MainActor
+final class TerminalTypographyStore: ObservableObject {
+    static let shared = TerminalTypographyStore()
+
+    @Published private(set) var configuration: TerminalTypographyConfiguration {
+        didSet { saveAndApply() }
+    }
+
+    private init() {
+        configuration = .current
+    }
+
+    func update(_ mutation: (inout TerminalTypographyConfiguration) -> Void) {
+        var updated = configuration
+        mutation(&updated)
+        configuration = updated
+    }
+
+    func reset() {
+        configuration = .defaults
+    }
+
+    private func saveAndApply() {
+        guard let data = try? JSONEncoder().encode(configuration) else { return }
+        UserDefaults.ghostty.set(data, forKey: TerminalTypographyConfiguration.defaultsKey)
+        (NSApp.delegate as? AppDelegate)?.ghostty.setTerminalTypography(configuration)
+    }
+}
+
 enum WorkspaceTabPresentation: String, CaseIterable, Identifiable, Hashable {
     case native
     case custom
@@ -152,6 +230,7 @@ final class WorkspaceCustomizationStore: ObservableObject {
     static let shared = WorkspaceCustomizationStore()
     static let configurationKey = "WorkspaceThemeConfiguration"
     static let presentationKey = "WorkspaceTabPresentation"
+    static let sidebarVisibleKey = "WorkspaceSessionSidebarVisible"
 
     @Published private(set) var configuration: WorkspaceThemeConfiguration {
         didSet { saveConfiguration() }
@@ -162,6 +241,10 @@ final class WorkspaceCustomizationStore: ObservableObject {
             UserDefaults.ghostty.set(tabPresentation.rawValue, forKey: Self.presentationKey)
             applyTabBarVisibility()
         }
+    }
+
+    @Published private(set) var sidebarVisible: Bool {
+        didSet { UserDefaults.ghostty.set(sidebarVisible, forKey: Self.sidebarVisibleKey) }
     }
 
     private init() {
@@ -175,6 +258,7 @@ final class WorkspaceCustomizationStore: ObservableObject {
         }
         tabPresentation = defaults.string(forKey: Self.presentationKey)
             .flatMap(WorkspaceTabPresentation.init(rawValue:)) ?? .native
+        sidebarVisible = defaults.object(forKey: Self.sidebarVisibleKey) as? Bool ?? false
     }
 
     func update(_ mutation: (inout WorkspaceThemeConfiguration) -> Void) {
@@ -203,6 +287,10 @@ final class WorkspaceCustomizationStore: ObservableObject {
         guard presentation != tabPresentation else { return }
         tabPresentation = presentation
         WorkspaceSessionStore.shared.refresh()
+    }
+
+    func setSidebarVisible(_ visible: Bool) {
+        sidebarVisible = visible
     }
 
     func applyTabBarVisibility() {

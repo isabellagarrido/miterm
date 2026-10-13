@@ -175,6 +175,21 @@ extension Ghostty {
             ghostty_app_update_config(app, config)
         }
 
+        /// Apply terminal typography preferences through Ghostty's normal config update path.
+        func setTerminalTypography(_ configuration: TerminalTypographyConfiguration) {
+            guard let app else { return }
+            let newConfig = Config(
+                at: configPath,
+                workspaceTabTheme: .current,
+                terminalTypography: configuration
+            )
+            guard newConfig.loaded, let config = newConfig.config else {
+                Ghostty.logger.error("failed to load terminal typography config overlay")
+                return
+            }
+            ghostty_app_update_config(app, config)
+        }
+
         func reloadConfig(surface: ghostty_surface_t, soft: Bool = false) {
             // Soft updates just call with our existing config
             if soft {
