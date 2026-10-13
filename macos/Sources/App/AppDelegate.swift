@@ -21,6 +21,7 @@ class AppDelegate: NSObject,
     @IBOutlet private var menuAbout: NSMenuItem?
     @IBOutlet private var menuServices: NSMenu?
     @IBOutlet private var menuCheckForUpdates: NSMenuItem?
+    @IBOutlet private var menuWorkspaceTabTheme: NSMenu?
     @IBOutlet private var menuOpenConfig: NSMenuItem?
     @IBOutlet private var menuReloadConfig: NSMenuItem?
     @IBOutlet private var menuSecureInput: NSMenuItem?
@@ -103,6 +104,13 @@ class AppDelegate: NSObject,
 
     /// This is the current configuration from the Ghostty configuration that we need.
     private var derivedConfig: DerivedConfig = DerivedConfig()
+
+    /// Retains the visual workspace theme picker while it is open.
+    private var workspaceThemePickerWindow: NSWindow?
+
+    /// Retains workspace customization and overview windows while they are open.
+    private var workspaceCustomizationWindow: NSWindow?
+    private var workspaceOverviewWindow: NSWindow?
 
     /// The ghostty global state. Only one per process.
     let ghostty: Ghostty.App
@@ -212,6 +220,8 @@ class AppDelegate: NSObject,
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        updateWorkspaceTabThemeMenu()
+
         // System settings overrides
         UserDefaults.ghostty.register(defaults: [
             // Disable this so that repeated key events make it through to our terminal views.
@@ -998,6 +1008,89 @@ class AppDelegate: NSObject,
 
     @IBAction func openConfig(_ sender: Any?) {
         ghostty.openConfig()
+    }
+
+    @IBAction func setWorkspaceTabTheme(_ sender: NSMenuItem) {
+        guard let theme = WorkspaceTabTheme.allCases.first(where: { $0.menuTag == sender.tag }) else { return }
+        selectWorkspaceTabTheme(theme)
+    }
+
+    @MainActor
+    func selectWorkspaceTabTheme(_ theme: WorkspaceTabTheme) {
+        WorkspaceCustomizationStore.shared.selectBaseTheme(theme)
+        updateWorkspaceTabThemeMenu()
+    }
+
+    @IBAction func showWorkspaceThemePicker(_ sender: Any?) {
+        if workspaceThemePickerWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 790, height: 390),
+                styleMask: [.titled, .closable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Workspace Themes"
+            window.isReleasedWhenClosed = false
+            window.contentView = NSHostingView(
+                rootView: WorkspaceThemePickerView().environmentObject(self)
+            )
+            workspaceThemePickerWindow = window
+        }
+
+        workspaceThemePickerWindow?.center()
+        workspaceThemePickerWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @IBAction func showWorkspaceCustomization(_ sender: Any?) {
+        if workspaceCustomizationWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 1020, height: 700),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Customize Workspace"
+            window.isReleasedWhenClosed = false
+            window.contentView = NSHostingView(
+                rootView: WorkspaceCustomizationView()
+            )
+            workspaceCustomizationWindow = window
+        }
+
+        workspaceCustomizationWindow?.setContentSize(NSSize(width: 1020, height: 700))
+        workspaceCustomizationWindow?.center()
+        workspaceCustomizationWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @IBAction func showWorkspaceOverview(_ sender: Any?) {
+        WorkspaceSessionStore.shared.refresh()
+        if workspaceOverviewWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 760, height: 540),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Workspace Overview"
+            window.isReleasedWhenClosed = false
+            window.contentView = NSHostingView(
+                rootView: WorkspaceOverviewView()
+            )
+            workspaceOverviewWindow = window
+        }
+
+        workspaceOverviewWindow?.center()
+        workspaceOverviewWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    private func updateWorkspaceTabThemeMenu() {
+        let currentTheme = WorkspaceTabTheme.current
+        menuWorkspaceTabTheme?.items.forEach { item in
+            item.state = item.tag == currentTheme.menuTag ? .on : .off
+        }
     }
 
     @IBAction func reloadConfig(_ sender: Any?) {

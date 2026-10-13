@@ -37,8 +37,20 @@ extension Ghostty {
             self.config = config
         }
 
-        convenience init(at path: String? = nil, finalize: Bool = true) {
-            self.init(config: Self.loadConfig(at: path, finalize: finalize))
+        convenience init(
+            at path: String? = nil,
+            finalize: Bool = true,
+            workspaceTabTheme: WorkspaceTabTheme? = nil,
+            terminalTypography: TerminalTypographyConfiguration = .current,
+            terminalColorTheme: TerminalColorTheme? = .active
+        ) {
+            self.init(config: Self.loadConfig(
+                at: path,
+                finalize: finalize,
+                workspaceTabTheme: workspaceTabTheme,
+                terminalTypography: terminalTypography,
+                terminalColorTheme: terminalColorTheme
+            ))
         }
 
         convenience init(clone config: ghostty_config_t) {
@@ -57,7 +69,13 @@ extension Ghostty {
         /// - Parameters:
         ///   - path: An optional preferred config file path. Pass `nil` to load the default configuration files.
         ///   - finalize: Whether to finalize the configuration to populate default values.
-        static func loadConfig(at path: String?, finalize: Bool) -> ghostty_config_t? {
+        static func loadConfig(
+            at path: String?,
+            finalize: Bool,
+            workspaceTabTheme: WorkspaceTabTheme? = nil,
+            terminalTypography: TerminalTypographyConfiguration = .current,
+            terminalColorTheme: TerminalColorTheme? = .active
+        ) -> ghostty_config_t? {
             // Initialize the global configuration.
             guard let cfg = ghostty_config_new() else {
                 logger.critical("ghostty_config_new failed")
@@ -78,6 +96,28 @@ extension Ghostty {
             }
 
             ghostty_config_load_recursive_files(cfg)
+
+            // UI preferences are applied after the user's config without modifying that file.
+            // Terminal typography remains independent from workspace theme colors.
+            let overlays = [
+                workspaceTabTheme?.configOverlay,
+                terminalTypography.configOverlay,
+                terminalColorTheme?.configOverlay,
+            ]
+                .compactMap { $0 }
+            if !overlays.isEmpty {
+                let overlayURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("ghostty-workspace-theme-\(UUID().uuidString).conf")
+                do {
+                    try overlays.joined(separator: "\n")
+                        .write(to: overlayURL, atomically: true, encoding: .utf8)
+                    ghostty_config_load_file(cfg, overlayURL.path)
+                    try FileManager.default.removeItem(at: overlayURL)
+                } catch {
+                    logger.error("failed to apply workspace theme overlay: \(error, privacy: .public)")
+                    try? FileManager.default.removeItem(at: overlayURL)
+                }
+            }
 
             // TODO: we'd probably do some config loading here... for now we'd
             // have to do this synchronously. When we support config updating we can do

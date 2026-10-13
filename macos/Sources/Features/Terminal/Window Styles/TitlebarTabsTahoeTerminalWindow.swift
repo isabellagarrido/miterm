@@ -60,6 +60,9 @@ class TitlebarTabsTahoeTerminalWindow: TransparentTitlebarTerminalWindow, NSTool
             // up with messed up tab bars that don't show all tabs.
             self.setupTabBar()
         }
+        viewModel.titleFont = titlebarFont
+            ?? WorkspaceCustomizationStore.shared.customWorkspaceTitleFont
+            ?? WorkspaceTabTheme.current.titleFont(size: NSFont.systemFontSize)
     }
 
     override func becomeMain() {
@@ -80,6 +83,18 @@ class TitlebarTabsTahoeTerminalWindow: TransparentTitlebarTerminalWindow, NSTool
     // This is called by macOS for native tabbing in order to add the tab bar. We hook into
     // this, detect the tab bar being added, and override its behavior.
     override func addTitlebarAccessoryViewController(_ childViewController: NSTitlebarAccessoryViewController) {
+        if isTabBar(childViewController),
+           WorkspaceCustomizationStore.shared.tabPresentation != .native {
+            // Do not let Tahoe's titlebar-tabs layout move AppKit's tab bar into
+            // the toolbar while sessions are selected through the workspace UI.
+            childViewController.view.isHidden = true
+            viewModel.hasTabBar = false
+            tabBarObserver = nil
+            observeTabGroupChanges()
+            WorkspaceCustomizationStore.shared.scheduleTabBarVisibilityUpdate()
+            return
+        }
+
         // If this is the tab bar then we need to set it up for the titlebar
         guard isTabBar(childViewController) else {
             // After dragging a tab into a new window, `hasTabBar` needs to be
@@ -150,6 +165,13 @@ class TitlebarTabsTahoeTerminalWindow: TransparentTitlebarTerminalWindow, NSTool
     ///
     /// There are more scenarios to look out for and they're documented within the method.
     func setupTabBar() {
+        guard WorkspaceCustomizationStore.shared.tabPresentation == .native else {
+            viewModel.hasTabBar = false
+            tabBarView?.isHidden = true
+            tabBarObserver = nil
+            return
+        }
+
         // We only want to setup the observer once
         guard tabBarObserver == nil else { return }
 
@@ -243,6 +265,18 @@ class TitlebarTabsTahoeTerminalWindow: TransparentTitlebarTerminalWindow, NSTool
 
         // Clear our observations
         self.tabBarObserver = nil
+    }
+
+    /// Called when changing tab presentation while this window is already open.
+    func setNativeTabBarVisible(_ visible: Bool) {
+        if !visible {
+            viewModel.hasTabBar = false
+            tabBarView?.isHidden = true
+            tabBarObserver = nil
+        } else {
+            tabBarView?.isHidden = false
+            setupTabBar()
+        }
     }
 
     // MARK: NSToolbarDelegate

@@ -41,6 +41,9 @@ protocol TerminalViewModel: ObservableObject {
 struct TerminalView<ViewModel: TerminalViewModel>: View {
     @ObservedObject var ghostty: Ghostty.App
 
+    @ObservedObject private var workspaceCustomization = WorkspaceCustomizationStore.shared
+    @ObservedObject private var workspaceSessions = WorkspaceSessionStore.shared
+
     // The required view model
     @ObservedObject var viewModel: ViewModel
 
@@ -72,11 +75,27 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             ErrorView()
         case .ready:
             ZStack {
-                VStack(spacing: 0) {
+                HStack(spacing: 0) {
+                    if workspaceCustomization.sidebarVisible {
+                        WorkspaceSessionSidebar()
+                    }
+
+                    VStack(spacing: 0) {
                     // If we're running in debug mode we show a warning so that users
                     // know that performance will be degraded.
                     if Ghostty.info.mode == GHOSTTY_BUILD_MODE_DEBUG || Ghostty.info.mode == GHOSTTY_BUILD_MODE_RELEASE_SAFE {
                         DebugBuildWarningView()
+                    }
+
+                    workspaceToolbar
+
+                    if workspaceCustomization.tabPresentation == .custom,
+                       let controller = delegate as? TerminalController,
+                       let window = controller.window {
+                        WorkspaceTabStripView(
+                            items: workspaceSessions.tabItems(in: window),
+                            configuration: workspaceCustomization.configuration
+                        )
                     }
 
                     TerminalSplitTreeView(
@@ -103,9 +122,10 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                         }
                         .frame(idealWidth: lastFocusedSurface?.value?.initialSize?.width,
                                idealHeight: lastFocusedSurface?.value?.initialSize?.height)
+                    }
+                    // Ignore safe area to extend up in to the titlebar region if we have the "hidden" titlebar style
+                    .ignoresSafeArea(.container, edges: ghostty.config.macosTitlebarStyle == .hidden ? .top : [])
                 }
-                // Ignore safe area to extend up in to the titlebar region if we have the "hidden" titlebar style
-                .ignoresSafeArea(.container, edges: ghostty.config.macosTitlebarStyle == .hidden ? .top : [])
 
                 if let surfaceView = lastFocusedSurface?.value {
                     TerminalCommandPaletteView(
@@ -124,6 +144,57 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             }
             .frame(maxWidth: .greatestFiniteMagnitude, maxHeight: .greatestFiniteMagnitude)
         }
+    }
+
+    private var workspaceToolbar: some View {
+        HStack(spacing: 6) {
+            Button {
+                (NSApp.delegate as? AppDelegate)?.showWorkspaceCustomization(nil)
+            } label: {
+                Label("Customize", systemImage: "slider.horizontal.3")
+            }
+            .help("Customize Workspace")
+
+            Button {
+                (NSApp.delegate as? AppDelegate)?.showWorkspaceOverview(nil)
+            } label: {
+                Label("Overview", systemImage: "square.grid.2x2")
+            }
+            .help("Workspace Overview")
+
+            if workspaceCustomization.tabPresentation != .sidebarOnly {
+                Button {
+                    workspaceCustomization.setSidebarVisible(!workspaceCustomization.sidebarVisible)
+                } label: {
+                    Image(systemName: workspaceCustomization.sidebarVisible ? "sidebar.left" : "sidebar.right")
+                }
+                .help(workspaceCustomization.sidebarVisible ? "Hide Session Sidebar" : "Show Session Sidebar")
+            }
+
+            Spacer(minLength: 8)
+
+            Button {
+                (delegate as? BaseTerminalController)?.splitRight(NSApp.keyWindow as Any)
+            } label: {
+                Image(systemName: "rectangle.split.2x1")
+            }
+            .help("Split Terminal Right")
+
+            Button {
+                (delegate as? BaseTerminalController)?.splitDown(NSApp.keyWindow as Any)
+            } label: {
+                Image(systemName: "rectangle.split.1x2")
+            }
+            .help("Split Terminal Down")
+        }
+        .buttonStyle(.borderless)
+        .font(.system(size: 12, weight: .medium))
+        .padding(.horizontal, 10)
+        .frame(height: 34)
+        .background(workspaceCustomization.configuration.tabBackground.color)
+        .foregroundStyle(workspaceCustomization.configuration.tabForeground.color)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Workspace toolbar")
     }
 }
 
