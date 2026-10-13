@@ -10,10 +10,11 @@ MiTerm is a macOS terminal app built on [Ghostty](https://github.com/ghostty-org
 
 ## Build
 
-Build the macOS app from source with Zig and Xcode installed:
+Build an optimized macOS app from source with Zig, Nushell, and Xcode installed:
 
 ```sh
-zig build
+zig build -Demit-macos-app=false
+nu macos/build.nu --scheme Ghostty --configuration Release --action build
 ```
 
-This project is based on Ghostty. See [HACKING.md](HACKING.md) for development details and build requirements.
+The app is written to `macos/build/Release/MiTerm.app`. This project is based on [Ghostty](https://github.com/ghostty-org/ghostty); see [HACKING.md](HACKING.md) for build requirements.
