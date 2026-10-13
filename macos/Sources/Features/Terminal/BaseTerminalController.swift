@@ -915,6 +915,7 @@ class BaseTerminalController: NSWindowController,
 
     private func applyTitleToWindow() {
         guard let window else { return }
+        defer { WorkspaceSessionStore.shared.refresh() }
 
         if let titleOverride {
             window.title = computeTitle(

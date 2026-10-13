@@ -593,11 +593,13 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// changes, when a window is closed, and when tabs are reordered
     /// with the mouse.
     func relabelTabs() {
+        let windows = window?.tabGroup?.windows
+
         // We only listen for frame changes if we have more than 1 window,
         // otherwise the accessory view doesn't matter.
-        tabListenForFrame = window?.tabbedWindows?.count ?? 0 > 1
+        tabListenForFrame = windows?.count ?? 0 > 1
 
-        if let windows = window?.tabbedWindows as? [TerminalWindow] {
+        if let windows = windows as? [TerminalWindow] {
             for (tab, window) in zip(1..., windows) {
                 // We need to clear any windows beyond this because they have had
                 // a keyEquivalent set previously.
@@ -613,6 +615,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 }
             }
         }
+
+        WorkspaceSessionStore.shared.refresh()
     }
 
     private func fixTabBar() {
@@ -636,7 +640,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // for the view frame to change, comparing the windows list, and
         // relabeling the tabs.
         guard tabListenForFrame else { return }
-        guard let v = self.window?.tabbedWindows?.hashValue else { return }
+        guard let v = self.window?.tabGroup?.windows.hashValue else { return }
         guard tabWindowsHash != v else { return }
         tabWindowsHash = v
         self.relabelTabs()

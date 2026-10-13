@@ -86,12 +86,12 @@ class TitlebarTabsVenturaTerminalWindow: TerminalWindow {
             // first tab in the tab bar is selected. If it is, we make the `windowButtonsBackdrop` color the same
             // as that of the active tab (i.e. the titlebar's background color), otherwise we make it the same
             // color as the background of unselected tabs.
-            if let index = windowController?.window?.tabbedWindows?.firstIndex(of: self) {
+            if let index = windowController?.window?.tabGroup?.windows.firstIndex(of: self) {
                 windowButtonsBackdrop?.isHighlighted = index == 0
             }
         }
 
-		titlebarSeparatorStyle = tabbedWindows != nil && !titlebarTabs ? .line : .none
+		titlebarSeparatorStyle = (tabGroup?.windows.count ?? 0) > 1 && !titlebarTabs ? .line : .none
         if titlebarTabs {
             hideToolbarOverflowButton()
             hideTitleBarSeparators()

@@ -41,6 +41,9 @@ protocol TerminalViewModel: ObservableObject {
 struct TerminalView<ViewModel: TerminalViewModel>: View {
     @ObservedObject var ghostty: Ghostty.App
 
+    @ObservedObject private var workspaceCustomization = WorkspaceCustomizationStore.shared
+    @ObservedObject private var workspaceSessions = WorkspaceSessionStore.shared
+
     // The required view model
     @ObservedObject var viewModel: ViewModel
 
@@ -77,6 +80,15 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                     // know that performance will be degraded.
                     if Ghostty.info.mode == GHOSTTY_BUILD_MODE_DEBUG || Ghostty.info.mode == GHOSTTY_BUILD_MODE_RELEASE_SAFE {
                         DebugBuildWarningView()
+                    }
+
+                    if workspaceCustomization.tabPresentation == .custom,
+                       let controller = delegate as? TerminalController,
+                       let window = controller.window {
+                        WorkspaceTabStripView(
+                            items: workspaceSessions.tabItems(in: window),
+                            configuration: workspaceCustomization.configuration
+                        )
                     }
 
                     TerminalSplitTreeView(

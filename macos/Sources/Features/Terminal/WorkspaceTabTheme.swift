@@ -1,7 +1,7 @@
 import AppKit
 
 /// Visual presets for the macOS workspace chrome and terminal surface.
-enum WorkspaceTabTheme: String, CaseIterable, Identifiable {
+enum WorkspaceTabTheme: String, CaseIterable, Identifiable, Codable, Hashable {
     case minimal
     case newspaper
     case pixel
