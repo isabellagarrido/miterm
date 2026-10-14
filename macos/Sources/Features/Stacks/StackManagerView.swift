@@ -8,7 +8,6 @@ private struct StackUIError: Identifiable {
 
 struct StackManagerView: View {
     @EnvironmentObject private var app: AppDelegate
-    @ObservedObject private var sessions = WorkspaceSessionStore.shared
     @ObservedObject private var store = StackDefinitionStore.shared
     @State private var editing: SavedStack?
     @State private var deleting: SavedStack?
@@ -48,24 +47,6 @@ struct StackManagerView: View {
                 .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
             }
 
-            if !sessions.runningStacks.isEmpty {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("Running Stacks").font(.headline)
-                    ScrollView {
-                        ForEach(sessions.runningStacks) { instance in
-                            HStack {
-                                Text(instance.definition.name).font(.system(size: 13, weight: .medium))
-                                Text(instance.launchedAt, style: .time).font(.caption).foregroundStyle(.secondary)
-                                Spacer()
-                                Button("Close Stack", role: .destructive) { sessions.requestCloseStack(instance.id) }
-                            }
-                            .padding(10)
-                        }
-                    }
-                    .frame(maxHeight: 140)
-                }
-            }
-
             if store.stacks.isEmpty && store.loadError == nil {
                 VStack(spacing: 14) {
                     Image(systemName: "square.stack.3d.up")
@@ -102,7 +83,7 @@ struct StackManagerView: View {
         .padding(28)
         .frame(minWidth: 720, minHeight: 500)
         .background(Color(nsColor: .windowBackgroundColor))
-        .onAppear { sessions.refresh() }
+        .onAppear { WorkspaceSessionStore.shared.refresh() }
         .sheet(item: $editing) { stack in
             StackEditorView(original: stack) { draft in try store.save(draft) }
         }

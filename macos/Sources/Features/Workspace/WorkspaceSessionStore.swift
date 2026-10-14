@@ -204,36 +204,6 @@ final class WorkspaceSessionStore: ObservableObject {
         controller.closeTab(nil)
     }
 
-    func requestCloseStack(_ id: UUID) {
-        refresh()
-        guard let instance = runningStacks.first(where: { $0.id == id }) else { return }
-        let count = sessions.filter { $0.runningStackID == id }.count
-        let alert = NSAlert()
-        alert.messageText = "Close \(instance.definition.name)?"
-        alert.informativeText = "This closes \(count) tabs in this running Stack and stops their processes. The saved Stack and other running instances remain available."
-        alert.alertStyle = .warning
-        alert.addButton(withTitle: "Close Stack")
-        alert.addButton(withTitle: "Cancel")
-        if let window = NSApp.keyWindow {
-            alert.beginSheetModal(for: window) { response in
-                guard response == .alertFirstButtonReturn else { return }
-                self.closeStackAfterConfirmation(id)
-            }
-        } else if alert.runModal() == .alertFirstButtonReturn {
-            closeStackAfterConfirmation(id)
-        }
-    }
-
-    /// Resolve membership again after confirmation: tabs may have moved or closed.
-    func closeStackAfterConfirmation(_ id: UUID) {
-        guard let instance = runningStacks.first(where: { $0.id == id }) else { return }
-        let controllers = TerminalController.all.filter {
-            !instance.surfaceIDs.isDisjoint(with: Set($0.surfaceTree.map(\.id)))
-        }
-        for controller in controllers { controller.closeTabImmediately() }
-        refresh()
-    }
-
     private func stack(for controller: TerminalController?) -> RunningStack? {
         guard let controller else { return nil }
         let ids = Set(controller.surfaceTree.map(\.id))

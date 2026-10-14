@@ -32,17 +32,18 @@ running instances and surface membership; it discards instances once their
 tracked terminal surfaces close. Running Stack metadata is not persisted across
 app launches. Ghostty retains responsibility for its normal session restoration.
 
-## Closing and tab navigation
+## Closing tabs and navigation
 
-The manager lists **Running Stacks** with a **Close Stack** button for each
-instance. Confirming closes only that instance’s tabs, including tabs moved to
-another window. Saved definitions, other instances, and ordinary tabs remain.
-Right-click any Stack tab in the sidebar or top strip for **Close Stack…**.
+Close tabs individually using the **×** button or **Close Tab** context-menu
+action. A running Stack disappears from the session registry after its last tab
+closes; its saved definition remains available. There is no separate Close Stack
+action.
 
+The sidebar **×** appears when hovering anywhere over a tab row or when its
+controls have keyboard focus. It does not reserve permanent horizontal space.
 Both the sidebar and the top strip use the current window’s native tab group,
-in the same order, with the same selection. Each tab has an **×** button and a
-**Close Tab** context-menu action. These use Ghostty’s normal close confirmation
-and undo behavior. Session Overview remains the view of sessions across windows.
+in the same order, with the same selection. Closing uses Ghostty’s normal
+confirmation and undo behavior. Session Overview remains the view across windows.
 
 ## Directories and commands
 

@@ -6,6 +6,9 @@ struct WorkspaceSessionSidebar: View {
   @ObservedObject private var iconStore = WorkspaceSessionIconStore.shared
   @ObservedObject private var customization = WorkspaceCustomizationStore.shared
   @State private var isCollapsed = false
+  @State private var hoveredSessionID: ObjectIdentifier?
+  @FocusState private var focusedSessionID: ObjectIdentifier?
+  @FocusState private var focusedCloseSessionID: ObjectIdentifier?
   let window: NSWindow
 
   var body: some View {
@@ -29,14 +32,19 @@ struct WorkspaceSessionSidebar: View {
         VStack(spacing: 7) {
           ForEach(sessionStore.tabItems(in: window)) { item in
             if let session = item.session {
-              HStack(spacing: 2) {
+              let showsClose = hoveredSessionID == session.id
+                || focusedSessionID == session.id || focusedCloseSessionID == session.id
+              ZStack(alignment: isCollapsed ? .center : .trailing) {
                 Button {
                   item.select()
                 } label: {
                   sessionRow(session)
+                    .padding(.trailing, showsClose && !isCollapsed ? 24 : 0)
+                    .opacity(showsClose && isCollapsed ? 0 : 1)
                 }
                 .frame(maxWidth: .infinity)
                 .buttonStyle(.plain)
+                .focused($focusedSessionID, equals: session.id)
                 .help(session.title)
                 .accessibilityLabel(
                   "\(session.title), \(session.isSelected ? "selected" : "inactive"), \(session.activityDescription)"
@@ -47,14 +55,26 @@ struct WorkspaceSessionSidebar: View {
                     .padding(5)
                 }
                 .buttonStyle(.plain)
+                .focused($focusedCloseSessionID, equals: session.id)
                 .help("Close tab")
                 .accessibilityLabel("Close \(session.title)")
+                .opacity(showsClose ? 1 : 0)
+                .allowsHitTesting(showsClose)
+                .accessibilityHidden(!showsClose)
+                .disabled(!showsClose)
+              }
+              .frame(maxWidth: .infinity)
+              .contentShape(Rectangle())
+              .onContinuousHover { phase in
+                switch phase {
+                case .active:
+                  if hoveredSessionID != session.id { hoveredSessionID = session.id }
+                case .ended:
+                  if hoveredSessionID == session.id { hoveredSessionID = nil }
+                }
               }
               .contextMenu {
                 Button("Close Tab") { sessionStore.closeSession(session.id) }
-                if let id = session.runningStackID {
-                  Button("Close Stack…") { sessionStore.requestCloseStack(id) }
-                }
               }
             }
           }
@@ -62,7 +82,7 @@ struct WorkspaceSessionSidebar: View {
       }
     }
     .padding(10)
-    .frame(width: isCollapsed ? 84 : 230)
+    .frame(width: isCollapsed ? 52 : 230)
     .frame(maxHeight: .infinity)
     .background(customization.configuration.tabBackground.color.opacity(0.72))
     .overlay(alignment: .trailing) {

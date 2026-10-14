@@ -72,9 +72,6 @@ struct WorkspaceTabStripView: View {
                     .contextMenu {
                         if let session = item.session {
                             Button("Close Tab") { sessions.closeSession(session.id) }
-                            if let id = session.runningStackID {
-                                Button("Close Stack…") { sessions.requestCloseStack(id) }
-                            }
                         }
                     }
                 }

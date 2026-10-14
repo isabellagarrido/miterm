@@ -363,14 +363,17 @@ struct StackNativeIntegrationTests {
             WorkspaceSessionStore.shared.registerStack($0)
         }
         #expect(firstGroup.windows.count == 5)
-        WorkspaceSessionStore.shared.closeStackAfterConfirmation(first.id)
+        for controller in controllers where controller.surfaceTree.first.map({ first.surfaceIDs.contains($0.id) }) == true {
+            if let window = controller.window { WorkspaceSessionStore.shared.closeSession(ObjectIdentifier(window)) }
+        }
         #expect(firstGroup.windows.contains { $0 === ordinary.window })
         #expect(firstGroup.windows.count == 2)
         #expect(WorkspaceSessionStore.shared.runningStacks.contains { $0.id == third.id })
         #expect(secondGroup.windows.count == 3)
         #expect(WorkspaceSessionStore.shared.runningStacks.contains { $0.id == second.id })
         #expect(!WorkspaceSessionStore.shared.runningStacks.contains { $0.id == first.id })
-        WorkspaceSessionStore.shared.closeStackAfterConfirmation(third.id)
+        let attachedSession = try #require(WorkspaceSessionStore.shared.sessions.first { $0.runningStackID == third.id })
+        WorkspaceSessionStore.shared.closeSession(attachedSession.id)
         #expect(firstGroup.windows.count == 1)
         #expect(firstGroup.windows.first === ordinary.window)
         WorkspaceSessionStore.shared.closeSession(ordinarySession.id)
