@@ -3,7 +3,8 @@
 Open **View → Stacks…**, choose **New Stack**, name it, and add the tabs you
 want to launch together. Each tab has a name, starting directory, and optional
 startup command. Drag a tab's handle to reorder it, or use its up/down buttons.
-Save the Stack, then choose **Open Stack**. The card menu also offers Edit,
+Use **Choose emoji…** to open macOS Emoji & Symbols for the Stack icon;
+the adjacent remove button clears it. Save the Stack, then choose **Open Stack**. The card menu also offers Edit,
 Duplicate, and Delete. Right-click the existing Overview toolbar control for
 another route to the Stack manager.
 

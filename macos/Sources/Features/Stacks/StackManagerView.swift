@@ -230,12 +230,16 @@ private struct StackEditorView: View {
                 TextField("Stack name", text: $draft.name)
                     .font(.title3)
                     .accessibilityLabel("Stack name")
-                TextField("Emoji", text: Binding(
-                    get: { draft.icon ?? "" },
-                    set: { draft.icon = $0.isEmpty ? nil : $0 }
-                ))
-                .frame(width: 72)
-                .accessibilityLabel("Optional Stack emoji")
+                StackEmojiPicker(emoji: $draft.icon)
+                    .frame(width: 120, height: 28)
+                if draft.icon != nil {
+                    Button { draft.icon = nil } label: {
+                        Image(systemName: "xmark.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Remove Stack emoji")
+                    .accessibilityLabel("Remove Stack emoji")
+                }
                 if draft.accent != nil {
                     ColorPicker("Accent", selection: Binding(
                         get: { draft.accent?.color ?? .accentColor },
