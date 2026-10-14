@@ -38,9 +38,9 @@ struct WorkspaceThemePickerView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 5) {
-                Text("Choose a workspace theme")
+                Text("Choose an appearance theme")
                     .font(.system(size: 22, weight: .semibold))
-                Text("Choose a workspace appearance. Terminal color themes are selected separately.")
+                Text("Choose an appearance. Terminal color themes are selected separately.")
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
             }
@@ -58,7 +58,7 @@ struct WorkspaceThemePickerView: View {
 
             if !customization.customProfiles.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Your workspace themes")
+                    Text("Your appearance themes")
                         .font(.system(size: 13, weight: .semibold))
                     ScrollView(.horizontal) {
                         HStack(spacing: 8) {
@@ -83,7 +83,7 @@ struct WorkspaceThemePickerView: View {
 
             HStack(spacing: 6) {
                 Image(systemName: "info.circle")
-                Text("Minimal follows your Ghostty config. Newspaper and Pixel include terminal palettes; Gruvbox workspace styling pairs with the separate Gruvbox terminal theme.")
+                Text("Minimal follows your Ghostty config. Newspaper and Pixel include terminal palettes; Gruvbox appearance styling pairs with the separate Gruvbox terminal theme.")
             }
             .font(.system(size: 11))
             .foregroundStyle(.secondary)

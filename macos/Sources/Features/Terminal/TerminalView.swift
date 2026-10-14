@@ -76,8 +76,9 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
         case .ready:
             ZStack {
                 HStack(spacing: 0) {
-                    if workspaceCustomization.sidebarVisible {
-                        WorkspaceSessionSidebar()
+                    if workspaceCustomization.sidebarVisible,
+                       let window = (delegate as? BaseTerminalController)?.window {
+                        WorkspaceSessionSidebar(window: window)
                     }
 
                     VStack(spacing: 0) {
@@ -153,14 +154,19 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             } label: {
                 Label("Customize", systemImage: "slider.horizontal.3")
             }
-            .help("Customize Workspace")
+            .help("Customize Appearance")
 
             Button {
                 (NSApp.delegate as? AppDelegate)?.showWorkspaceOverview(nil)
             } label: {
                 Label("Overview", systemImage: "square.grid.2x2")
             }
-            .help("Workspace Overview")
+            .help("Session Overview")
+            .contextMenu {
+                Button("Manage Stacks…") {
+                    (NSApp.delegate as? AppDelegate)?.showStackManager(nil)
+                }
+            }
 
             if workspaceCustomization.tabPresentation != .sidebarOnly {
                 Button {
@@ -194,7 +200,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
         .background(workspaceCustomization.configuration.tabBackground.color)
         .foregroundStyle(workspaceCustomization.configuration.tabForeground.color)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Workspace toolbar")
+        .accessibilityLabel("Session toolbar")
     }
 }
 

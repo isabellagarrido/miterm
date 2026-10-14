@@ -13,10 +13,12 @@ struct WorkspaceSessionSnapshot: Identifiable {
     let isSelected: Bool
     let isKeyWindow: Bool
     let hasActiveBell: Bool
+    let runningStackID: UUID?
+    let stackName: String?
 
     var window: NSWindow? { windowReference.value }
 
-    init(window: NSWindow, controller: TerminalController?) {
+    init(window: NSWindow, controller: TerminalController?, stack: RunningStack? = nil) {
         id = ObjectIdentifier(window)
         iconStorageKey = controller?.surfaceTree.first.map { "session:\($0.id.uuidString)" }
             ?? "title:\(window.title)"
@@ -26,6 +28,8 @@ struct WorkspaceSessionSnapshot: Identifiable {
         isSelected = window.tabGroup?.selectedWindow === window || window.isKeyWindow
         isKeyWindow = window.isKeyWindow
         hasActiveBell = controller?.bell ?? false
+        runningStackID = stack?.id
+        stackName = stack?.definition.name
     }
 
     var activityDescription: String {
@@ -148,7 +152,9 @@ final class WorkspaceSessionStore: ObservableObject {
     static let shared = WorkspaceSessionStore()
 
     @Published private(set) var sessions: [WorkspaceSessionSnapshot] = []
+    @Published private(set) var runningStacks: [RunningStack] = []
 
+    private let closedWindows = NSHashTable<NSWindow>.weakObjects()
     private var notificationObservers: [NSObjectProtocol] = []
     private var tabGroupObservations: [ObjectIdentifier: [NSKeyValueObservation]] = [:]
     private var controllerObservations: [ObjectIdentifier: AnyCancellable] = [:]
@@ -165,7 +171,16 @@ final class WorkspaceSessionStore: ObservableObject {
                 forName: name,
                 object: nil,
                 queue: .main
-            ) { [weak self] _ in
+            ) { [weak self] notification in
+                MainActor.assumeIsolated {
+                    if let window = notification.object as? NSWindow {
+                        if name == NSWindow.willCloseNotification {
+                            self?.closedWindows.add(window)
+                        } else if name == NSWindow.didBecomeKeyNotification {
+                            self?.closedWindows.remove(window)
+                        }
+                    }
+                }
                 Task { @MainActor [weak self] in
                     self?.refresh()
                 }
@@ -179,15 +194,40 @@ final class WorkspaceSessionStore: ObservableObject {
         notificationObservers.forEach(NotificationCenter.default.removeObserver)
     }
 
+    func registerStack(_ instance: RunningStack) {
+        runningStacks.append(instance)
+        refresh()
+    }
+
+    func closeSession(_ id: ObjectIdentifier) {
+        guard let controller = sessions.first(where: { $0.id == id })?.window?.windowController as? TerminalController else { return }
+        controller.closeTab(nil)
+    }
+
+    private func stack(for controller: TerminalController?) -> RunningStack? {
+        guard let controller else { return nil }
+        let ids = Set(controller.surfaceTree.map(\.id))
+        return runningStacks.first { !$0.surfaceIDs.isDisjoint(with: ids) }
+    }
+
     func refresh() {
-        let controllers = TerminalController.all
+        let controllers = TerminalController.all.filter { controller in
+            guard let window = controller.window else { return false }
+            return !closedWindows.contains(window)
+        }
+        let liveSurfaceIDs = Set(controllers.flatMap { $0.surfaceTree.map(\.id) })
+        runningStacks = runningStacks.compactMap { instance in
+            var instance = instance
+            instance.surfaceIDs.formIntersection(liveSurfaceIDs)
+            return instance.surfaceIDs.isEmpty ? nil : instance
+        }
         let windows = controllers.compactMap(\.window)
         observeTabGroups(windows.compactMap(\.tabGroup))
         observeControllers(controllers)
 
         sessions = controllers.compactMap { controller in
             guard let window = controller.window else { return nil }
-            return WorkspaceSessionSnapshot(window: window, controller: controller)
+            return WorkspaceSessionSnapshot(window: window, controller: controller, stack: stack(for: controller))
         }
 
         WorkspaceCustomizationStore.shared.applyTabBarVisibility()
@@ -237,8 +277,7 @@ final class WorkspaceSessionStore: ObservableObject {
             }
             // AppKit can recreate its titlebar tab bar after a tab change or restore.
             // Keep the native bar in sync with MiTerm's Native/MiTerm strip preference.
-            let visibilityObservation = group.observe(\.isTabBarVisible, options: [.new]) {
-                [weak self] _, _ in
+            let visibilityObservation = group.observe(\.isTabBarVisible, options: [.new]) { [weak self] _, _ in
                 Task { @MainActor [weak self] in
                     guard self != nil else { return }
                     WorkspaceCustomizationStore.shared.applyTabBarVisibility()

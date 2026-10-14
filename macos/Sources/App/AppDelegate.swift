@@ -111,6 +111,7 @@ class AppDelegate: NSObject,
     /// Retains workspace customization and overview windows while they are open.
     private var workspaceCustomizationWindow: NSWindow?
     private var workspaceOverviewWindow: NSWindow?
+    private var stackManagerWindow: NSWindow?
 
     /// The ghostty global state. Only one per process.
     let ghostty: Ghostty.App
@@ -1010,6 +1011,25 @@ class AppDelegate: NSObject,
         ghostty.openConfig()
     }
 
+    @IBAction func showStackManager(_ sender: Any?) {
+        if stackManagerWindow == nil {
+            let window = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 860, height: 620),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            window.title = "Stacks"
+            window.tabbingMode = .disallowed
+            window.isReleasedWhenClosed = false
+            window.contentView = NSHostingView(rootView: StackManagerView().environmentObject(self))
+            stackManagerWindow = window
+        }
+        stackManagerWindow?.center()
+        stackManagerWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     @IBAction func setWorkspaceTabTheme(_ sender: NSMenuItem) {
         guard let theme = WorkspaceTabTheme.allCases.first(where: { $0.menuTag == sender.tag }) else { return }
         selectWorkspaceTabTheme(theme)
@@ -1029,7 +1049,7 @@ class AppDelegate: NSObject,
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Workspace Themes"
+            window.title = "Appearance Themes"
             window.isReleasedWhenClosed = false
             window.contentView = NSHostingView(
                 rootView: WorkspaceThemePickerView().environmentObject(self)
@@ -1050,7 +1070,7 @@ class AppDelegate: NSObject,
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Customize Workspace"
+            window.title = "Customize Appearance"
             window.isReleasedWhenClosed = false
             window.contentView = NSHostingView(
                 rootView: WorkspaceCustomizationView()
@@ -1073,7 +1093,7 @@ class AppDelegate: NSObject,
                 backing: .buffered,
                 defer: false
             )
-            window.title = "Workspace Overview"
+            window.title = "Session Overview"
             window.isReleasedWhenClosed = false
             window.contentView = NSHostingView(
                 rootView: WorkspaceOverviewView()

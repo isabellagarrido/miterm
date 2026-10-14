@@ -123,7 +123,7 @@ struct WorkspaceCustomizationView: View {
         Label(section.rawValue, systemImage: section.symbol)
           .tag(section)
       }
-      .navigationTitle("Customize Workspace")
+      .navigationTitle("Customize Appearance")
       .navigationSplitViewColumnWidth(min: 165, ideal: 185)
     } detail: {
       ScrollView {
@@ -162,7 +162,7 @@ struct WorkspaceCustomizationView: View {
     VStack(alignment: .leading, spacing: 18) {
       sectionHeader(
         "Appearance",
-        subtitle: "Choose a workspace theme. Terminal grid styling is configured separately.")
+        subtitle: "Choose a appearance theme. Terminal grid styling is configured separately.")
       Picker(
         "Base theme",
         selection: Binding(
@@ -214,7 +214,7 @@ struct WorkspaceCustomizationView: View {
       }
 
       HStack(spacing: 10) {
-        TextField("Name a workspace theme", text: $newWorkspaceThemeName)
+        TextField("Name an appearance theme", text: $newWorkspaceThemeName)
           .textFieldStyle(.roundedBorder)
           .frame(maxWidth: 300)
         Button("Save Current as Theme") {
@@ -226,7 +226,7 @@ struct WorkspaceCustomizationView: View {
       }
 
       if !store.customProfiles.isEmpty {
-        GroupBox("Saved workspace themes") {
+        GroupBox("Saved appearance themes") {
           VStack(spacing: 8) {
             ForEach(store.customProfiles) { profile in
               HStack {
@@ -275,7 +275,7 @@ struct WorkspaceCustomizationView: View {
       sectionHeader(
         "Terminal typography",
         subtitle:
-          "These settings affect Ghostty's fixed-width terminal grid and remain independent from workspace fonts."
+          "These settings affect Ghostty's fixed-width terminal grid and remain independent from appearance fonts."
       )
 
       GroupBox("Font") {
@@ -364,7 +364,7 @@ struct WorkspaceCustomizationView: View {
       sectionHeader(
         "Terminal color themes",
         subtitle:
-          "Choose a saved Ghostty terminal palette or create your own. These colors are separate from tab and workspace styling."
+          "Choose a saved Ghostty terminal palette or create your own. These colors are separate from tab and appearance styling."
       )
 
       HStack(spacing: 12) {
@@ -375,7 +375,7 @@ struct WorkspaceCustomizationView: View {
             set: { selectTerminalColorTheme($0) }
           )
         ) {
-          Text("Use workspace theme").tag(TerminalColorTheme.workspaceDefaultID)
+          Text("Use appearance theme").tag(TerminalColorTheme.workspaceDefaultID)
           ForEach(terminalColorThemes.availableThemes) { theme in
             Text(theme.name).tag(theme.id)
           }
@@ -654,7 +654,7 @@ struct WorkspaceCustomizationView: View {
       sectionHeader(
         "Session icons",
         subtitle:
-          "Choose a workspace icon for each terminal tab. Choices are saved between launches.")
+          "Choose a session icon for each terminal tab. Choices are saved between launches.")
       if sessions.sessions.isEmpty {
         Text("Open a terminal window or tab to customize its icon.")
           .font(.system(size: 13))
@@ -710,18 +710,18 @@ struct WorkspaceCustomizationView: View {
       sectionHeader(
         "Session widgets",
         subtitle:
-          "Workspace Overview currently shows one movable session widget for every live Ghostty terminal window or tab."
+          "Session Overview currently shows one movable session widget for every live Ghostty terminal window or tab."
       )
       Label("Drag a session card to reorder the overview", systemImage: "hand.draw")
       Label("Click a card to focus that session", systemImage: "macwindow")
-      Label("Cards use your selected workspace theme", systemImage: "paintpalette")
+      Label("Cards use your selected appearance theme", systemImage: "paintpalette")
       Text(
         "Widget order lasts while this overview window remains open. Additional widget types can be added here later without changing Ghostty's terminal ownership."
       )
       .font(.system(size: 12))
       .foregroundStyle(.secondary)
       .fixedSize(horizontal: false, vertical: true)
-      Button("Open Workspace Overview") {
+      Button("Open Session Overview") {
         (NSApp.delegate as? AppDelegate)?.showWorkspaceOverview(nil)
       }
       .buttonStyle(.borderedProminent)
@@ -800,8 +800,7 @@ struct WorkspaceCustomizationView: View {
     range: ClosedRange<Double>,
     suffix: String
   ) -> some View {
-    settingSlider(title, value: store.configuration[keyPath: keyPath], range: range, suffix: suffix)
-    { value in
+    settingSlider(title, value: store.configuration[keyPath: keyPath], range: range, suffix: suffix) { value in
       store.update { $0[keyPath: keyPath] = value }
     }
   }

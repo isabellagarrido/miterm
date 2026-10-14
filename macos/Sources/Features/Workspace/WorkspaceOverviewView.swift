@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct WorkspaceSessionSidebar: View {
@@ -5,12 +6,16 @@ struct WorkspaceSessionSidebar: View {
   @ObservedObject private var iconStore = WorkspaceSessionIconStore.shared
   @ObservedObject private var customization = WorkspaceCustomizationStore.shared
   @State private var isCollapsed = false
+  @State private var hoveredSessionID: ObjectIdentifier?
+  @FocusState private var focusedSessionID: ObjectIdentifier?
+  @FocusState private var focusedCloseSessionID: ObjectIdentifier?
+  let window: NSWindow
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack {
         if !isCollapsed {
-          Text("Sessions")
+          Text("Tabs")
             .font(.system(size: 13, weight: .semibold))
         }
         Spacer(minLength: 2)
@@ -25,17 +30,53 @@ struct WorkspaceSessionSidebar: View {
 
       ScrollView {
         VStack(spacing: 7) {
-          ForEach(sessionStore.sessions) { session in
-            Button {
-              sessionStore.selectSession(session.id)
-            } label: {
-              sessionRow(session)
+          ForEach(sessionStore.tabItems(in: window)) { item in
+            if let session = item.session {
+              let showsClose = hoveredSessionID == session.id
+                || focusedSessionID == session.id || focusedCloseSessionID == session.id
+              ZStack(alignment: isCollapsed ? .center : .trailing) {
+                Button {
+                  item.select()
+                } label: {
+                  sessionRow(session)
+                    .padding(.trailing, showsClose && !isCollapsed ? 24 : 0)
+                    .opacity(showsClose && isCollapsed ? 0 : 1)
+                }
+                .frame(maxWidth: .infinity)
+                .buttonStyle(.plain)
+                .focused($focusedSessionID, equals: session.id)
+                .help(session.title)
+                .accessibilityLabel(
+                  "\(session.title), \(session.isSelected ? "selected" : "inactive"), \(session.activityDescription)"
+                )
+                Button { sessionStore.closeSession(session.id) } label: {
+                  Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .padding(5)
+                }
+                .buttonStyle(.plain)
+                .focused($focusedCloseSessionID, equals: session.id)
+                .help("Close tab")
+                .accessibilityLabel("Close \(session.title)")
+                .opacity(showsClose ? 1 : 0)
+                .allowsHitTesting(showsClose)
+                .accessibilityHidden(!showsClose)
+                .disabled(!showsClose)
+              }
+              .frame(maxWidth: .infinity)
+              .contentShape(Rectangle())
+              .onContinuousHover { phase in
+                switch phase {
+                case .active:
+                  if hoveredSessionID != session.id { hoveredSessionID = session.id }
+                case .ended:
+                  if hoveredSessionID == session.id { hoveredSessionID = nil }
+                }
+              }
+              .contextMenu {
+                Button("Close Tab") { sessionStore.closeSession(session.id) }
+              }
             }
-            .buttonStyle(.plain)
-            .help(session.title)
-            .accessibilityLabel(
-              "\(session.title), \(session.isSelected ? "selected" : "inactive"), \(session.activityDescription)"
-            )
           }
         }
       }
@@ -120,7 +161,7 @@ struct WorkspaceOverviewView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
       VStack(alignment: .leading, spacing: 4) {
-        Text("Workspace Overview")
+        Text("Session Overview")
           .font(.system(size: 22, weight: .semibold))
         Text("Open terminal tabs from Ghostty’s window groups.")
           .font(.system(size: 13))
@@ -236,6 +277,13 @@ private struct WorkspaceSessionWidget: View {
             session.isSelected
               ? configuration.selectedBorderColor.color
               : configuration.tabForeground.color.opacity(0.65))
+        }
+
+        if let stackName = session.stackName {
+          Label(stackName, systemImage: "square.stack.3d.up")
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(configuration.tabForeground.color.opacity(0.7))
+            .lineLimit(1)
         }
 
         Text(session.title)

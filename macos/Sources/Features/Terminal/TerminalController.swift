@@ -256,9 +256,15 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     static func newWindow(
         _ ghostty: Ghostty.App,
         withBaseConfig baseConfig: Ghostty.SurfaceConfiguration? = nil,
-        withParent explicitParent: NSWindow? = nil
+        withParent explicitParent: NSWindow? = nil,
+        inheritingParentFullscreen: Bool = true,
+        inNewTabGroup: Bool = false,
+        onPresented: ((TerminalController, Bool) -> Void)? = nil
     ) -> TerminalController {
         let c = TerminalController.init(ghostty, withBaseConfig: baseConfig)
+        // Prevent macOS's Prefer Tabs setting from merging a separate Stack window.
+        let originalTabbingMode = inNewTabGroup ? c.window?.tabbingMode : nil
+        if inNewTabGroup { c.window?.tabbingMode = .disallowed }
 
         // Get our parent. Our parent is the one explicitly given to us,
         // otherwise the focused terminal, otherwise an arbitrary one.
@@ -267,7 +273,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             c.isBackgroundOpaque = parentController.isBackgroundOpaque
         }
 
-        if let parent, parent.styleMask.contains(.fullScreen) {
+        if inheritingParentFullscreen, let parent, parent.styleMask.contains(.fullScreen) {
             // If our previous window was fullscreen then we want our new window to
             // be fullscreen. This behavior actually doesn't match the native tabbing
             // behavior of macOS apps where new windows create tabs when in native
@@ -297,7 +303,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             // That weird tabbing behavior only happens in the following cases at the point of writing.
             // - Creating a window via the Shortcuts app for now.
             // - Creating a window via `New Ghostty Window Here` service.
-            c.showWindowSafely(self)
+            let presented = c.showWindowSafely(self)
+            if inNewTabGroup, let mode = originalTabbingMode {
+                c.window?.tabbingMode = mode
+            }
 
             // Only cascade if we aren't fullscreen.
             if let window = c.window {
@@ -315,6 +324,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             // All new_window actions force our app to be active, so that the new
             // window is focused and visible.
             NSApp.activate(ignoringOtherApps: true)
+            onPresented?(c, presented)
         }
 
         // Setup our undo
