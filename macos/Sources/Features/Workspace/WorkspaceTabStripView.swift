@@ -63,7 +63,7 @@ struct WorkspaceTabStripView: View {
         .scrollIndicators(.hidden)
         .background(configuration.tabBackground.color.opacity(0.42))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("Workspace tabs")
+        .accessibilityLabel("Session tabs")
     }
 
     static func sampleItems() -> [WorkspaceTabItem] {

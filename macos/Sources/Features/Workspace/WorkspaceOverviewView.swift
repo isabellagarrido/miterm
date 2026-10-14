@@ -120,7 +120,7 @@ struct WorkspaceOverviewView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
       VStack(alignment: .leading, spacing: 4) {
-        Text("Workspace Overview")
+        Text("Session Overview")
           .font(.system(size: 22, weight: .semibold))
         Text("Open terminal tabs from Ghostty’s window groups.")
           .font(.system(size: 13))
@@ -236,6 +236,13 @@ private struct WorkspaceSessionWidget: View {
             session.isSelected
               ? configuration.selectedBorderColor.color
               : configuration.tabForeground.color.opacity(0.65))
+        }
+
+        if let stackName = session.stackName {
+          Label(stackName, systemImage: "square.stack.3d.up")
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(configuration.tabForeground.color.opacity(0.7))
+            .lineLimit(1)
         }
 
         Text(session.title)

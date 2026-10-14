@@ -335,9 +335,15 @@
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="L3L-I8-sqk"/>
-                            <menuItem title="Workspace Theme" id="Wsp-Theme-Item">
+                            <menuItem title="Stacks…" id="Stk-Manager-Item">
                                 <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="Workspace Theme" id="Wsp-Theme-Menu">
+                                <connections>
+                                    <action selector="showStackManager:" target="bbz-4X-AYv" id="Stk-Manager-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Appearance Theme" id="Wsp-Theme-Item">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Appearance Theme" id="Wsp-Theme-Menu">
                                     <items>
                                         <menuItem title="Minimal" tag="0" id="Wsp-Theme-Minimal">
                                             <modifierMask key="keyEquivalentModifierMask"/>
@@ -366,19 +372,19 @@
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem title="Choose Workspace Theme…" id="Wsp-Theme-Picker-Item">
+                            <menuItem title="Choose Appearance Theme…" id="Wsp-Theme-Picker-Item">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="showWorkspaceThemePicker:" target="bbz-4X-AYv" id="Wsp-Theme-Picker-Action"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Customize Workspace…" id="Wsp-Customize-Item">
+                            <menuItem title="Customize Appearance…" id="Wsp-Customize-Item">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="showWorkspaceCustomization:" target="bbz-4X-AYv" id="Wsp-Customize-Action"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Workspace Overview" id="Wsp-Overview-Item">
+                            <menuItem title="Session Overview" id="Wsp-Overview-Item">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="showWorkspaceOverview:" target="bbz-4X-AYv" id="Wsp-Overview-Action"/>
