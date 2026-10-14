@@ -76,8 +76,9 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
         case .ready:
             ZStack {
                 HStack(spacing: 0) {
-                    if workspaceCustomization.sidebarVisible {
-                        WorkspaceSessionSidebar()
+                    if workspaceCustomization.sidebarVisible,
+                       let window = (delegate as? BaseTerminalController)?.window {
+                        WorkspaceSessionSidebar(window: window)
                     }
 
                     VStack(spacing: 0) {

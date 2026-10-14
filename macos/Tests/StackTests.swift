@@ -176,6 +176,8 @@ private final class RecordingStackDriver: StackTerminalCreating {
     var selected: UUID?
     var failAtTab: Int?
 
+    var parent: StackTerminal?
+    func currentTerminal() throws -> StackTerminal? { parent }
     func validate(tabCount: Int) throws {}
 
     func newWindow(configuration: Ghostty.SurfaceConfiguration) async throws -> StackTerminal {
@@ -184,7 +186,7 @@ private final class RecordingStackDriver: StackTerminalCreating {
 
     func newTab(configuration: Ghostty.SurfaceConfiguration, after: StackTerminal) throws -> StackTerminal {
         if configurations.count == failAtTab { throw StackError.terminalCreation("Test failure") }
-        #expect(after.surfaceID == terminals.last?.surfaceID)
+        #expect(after.surfaceID == (terminals.last?.surfaceID ?? parent?.surfaceID))
         return makeTerminal(configuration)
     }
 
@@ -220,6 +222,15 @@ struct StackLaunchTests {
         #expect(driver.configurations[1].context == GHOSTTY_SURFACE_CONTEXT_TAB)
         #expect(driver.configurations[2].command == nil)
         #expect(driver.selected == driver.terminals[3].surfaceID)
+    }
+
+    @Test func currentWindowPreferenceAttachesTabsToExistingTerminal() async throws {
+        let driver = RecordingStackDriver()
+        driver.parent = StackTerminal(surfaceID: UUID(), window: nil)
+        let stack = SavedStack(name: "Attached", tabs: [StackTabDefinition(name: "Tab", directory: "/tmp")], launchLocation: .currentWindow)
+        try await StackLauncher.open(stack, using: driver) { _ in }
+        #expect(driver.configurations.first?.context == GHOSTTY_SURFACE_CONTEXT_TAB)
+        #expect(driver.parent?.surfaceID != driver.terminals.first?.surfaceID)
     }
 
     @Test func validatesAllDirectoriesBeforeCreatingTerminals() async throws {
@@ -314,6 +325,11 @@ struct StackNativeIntegrationTests {
         #expect(firstGroup.windows.map(\.title) == stack.tabs.map(\.name))
         #expect(secondGroup.windows.map(\.title) == stack.tabs.map(\.name))
 
+        let firstItems = WorkspaceSessionStore.shared.tabItems(in: try #require(firstController.window))
+        let secondItems = WorkspaceSessionStore.shared.tabItems(in: try #require(secondController.window))
+        #expect(firstItems.map(\.title) == stack.tabs.map(\.name))
+        #expect(Set(firstItems.map(\.id)).isDisjoint(with: Set(secondItems.map(\.id))))
+
         var lines: [String] = []
         for _ in 0..<100 {
             lines = (try? String(contentsOf: output, encoding: .utf8))?.split(separator: "\n").map(String.init) ?? []
@@ -336,5 +352,28 @@ struct StackNativeIntegrationTests {
         WorkspaceSessionStore.shared.refresh()
         let ordinarySession = try #require(WorkspaceSessionStore.shared.sessions.first { $0.window === ordinary.window })
         #expect(ordinarySession.runningStackID == nil)
+
+        ordinary.window?.makeKeyAndOrderFront(nil)
+        var attached = stack
+        attached.id = UUID()
+        attached.name = "Attached Stack"
+        attached.tabs = [StackTabDefinition(name: "Attached tab", directory: directory.path)]
+        attached.launchLocation = .currentWindow
+        let third = try await StackLauncher.open(attached, using: driver) {
+            WorkspaceSessionStore.shared.registerStack($0)
+        }
+        #expect(firstGroup.windows.count == 5)
+        WorkspaceSessionStore.shared.closeStackAfterConfirmation(first.id)
+        #expect(firstGroup.windows.contains { $0 === ordinary.window })
+        #expect(firstGroup.windows.count == 2)
+        #expect(WorkspaceSessionStore.shared.runningStacks.contains { $0.id == third.id })
+        #expect(secondGroup.windows.count == 3)
+        #expect(WorkspaceSessionStore.shared.runningStacks.contains { $0.id == second.id })
+        #expect(!WorkspaceSessionStore.shared.runningStacks.contains { $0.id == first.id })
+        WorkspaceSessionStore.shared.closeStackAfterConfirmation(third.id)
+        #expect(firstGroup.windows.count == 1)
+        #expect(firstGroup.windows.first === ordinary.window)
+        WorkspaceSessionStore.shared.closeSession(ordinarySession.id)
+        #expect(ordinary.window?.isVisible != true)
     }
 }

@@ -1,7 +1,8 @@
 # Stacks
 
 Open **View → Stacks…**, choose **New Stack**, name it, and add the tabs you
-want to launch together. Each tab has a name, starting directory, and optional
+want to launch together. Choose **Open in → New window** or **Current window**
+when creating or editing the Stack. Each tab has a name, starting directory, and optional
 startup command. Drag a tab's handle to reorder it, or use its up/down buttons.
 Use **Choose emoji…** to open macOS Emoji & Symbols for the Stack icon;
 the adjacent remove button clears it. Save the Stack, then choose **Open Stack**. The card menu also offers Edit,
@@ -20,12 +21,28 @@ The Codable document has a format version, stable Stack and tab UUIDs, and
 ordered tab definitions. Writes are atomic. Unreadable, invalid, or unsupported
 versions are reported in the manager and are never silently overwritten.
 
-Each explicit Open creates a separate native window/tab group and a running
-instance with a snapshot of the saved definition. Editing or deleting the saved
+Each explicit Open creates a running instance with a snapshot of the saved
+definition. The saved Open in choice determines whether its tabs open in a new
+window or join the most recently used terminal window. If there is no terminal
+window, Current window falls back to a new one. Older definitions default to
+New window, and macOS’s Prefer Tabs setting cannot merge that new window into
+an existing Stack. Editing or deleting the saved
 Stack does not modify its running terminals. The existing session registry tracks
 running instances and surface membership; it discards instances once their
 tracked terminal surfaces close. Running Stack metadata is not persisted across
 app launches. Ghostty retains responsibility for its normal session restoration.
+
+## Closing and tab navigation
+
+The manager lists **Running Stacks** with a **Close Stack** button for each
+instance. Confirming closes only that instance’s tabs, including tabs moved to
+another window. Saved definitions, other instances, and ordinary tabs remain.
+Right-click any Stack tab in the sidebar or top strip for **Close Stack…**.
+
+Both the sidebar and the top strip use the current window’s native tab group,
+in the same order, with the same selection. Each tab has an **×** button and a
+**Close Tab** context-menu action. These use Ghostty’s normal close confirmation
+and undo behavior. Session Overview remains the view of sessions across windows.
 
 ## Directories and commands
 
@@ -49,9 +66,8 @@ feature in this milestone.
 ## Architecture and scope
 
 Reuse Ghostty's `TerminalController.newWindow` / `newTab`, AppKit tab groups,
-and existing terminal surfaces. Creating the later tabs waits for the first
-window's presentation, then attaches each tab after its predecessor to preserve
-the saved order. Select the first tab after launch. Normal creation calls retain
+and existing terminal surfaces. When opening a new window, creation of later tabs waits for its presentation.
+Tabs attach after their predecessor to preserve saved order. Select the first tab after launch. Normal creation calls retain
 their defaults and keyboard shortcuts.
 
 A separate app-owned terminal host or tab renderer would duplicate ownership,

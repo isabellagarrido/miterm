@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct WorkspaceSessionSidebar: View {
@@ -5,12 +6,13 @@ struct WorkspaceSessionSidebar: View {
   @ObservedObject private var iconStore = WorkspaceSessionIconStore.shared
   @ObservedObject private var customization = WorkspaceCustomizationStore.shared
   @State private var isCollapsed = false
+  let window: NSWindow
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
       HStack {
         if !isCollapsed {
-          Text("Sessions")
+          Text("Tabs")
             .font(.system(size: 13, weight: .semibold))
         }
         Spacer(minLength: 2)
@@ -25,23 +27,42 @@ struct WorkspaceSessionSidebar: View {
 
       ScrollView {
         VStack(spacing: 7) {
-          ForEach(sessionStore.sessions) { session in
-            Button {
-              sessionStore.selectSession(session.id)
-            } label: {
-              sessionRow(session)
+          ForEach(sessionStore.tabItems(in: window)) { item in
+            if let session = item.session {
+              HStack(spacing: 2) {
+                Button {
+                  item.select()
+                } label: {
+                  sessionRow(session)
+                }
+                .frame(maxWidth: .infinity)
+                .buttonStyle(.plain)
+                .help(session.title)
+                .accessibilityLabel(
+                  "\(session.title), \(session.isSelected ? "selected" : "inactive"), \(session.activityDescription)"
+                )
+                Button { sessionStore.closeSession(session.id) } label: {
+                  Image(systemName: "xmark")
+                    .font(.system(size: 10, weight: .semibold))
+                    .padding(5)
+                }
+                .buttonStyle(.plain)
+                .help("Close tab")
+                .accessibilityLabel("Close \(session.title)")
+              }
+              .contextMenu {
+                Button("Close Tab") { sessionStore.closeSession(session.id) }
+                if let id = session.runningStackID {
+                  Button("Close Stack…") { sessionStore.requestCloseStack(id) }
+                }
+              }
             }
-            .buttonStyle(.plain)
-            .help(session.title)
-            .accessibilityLabel(
-              "\(session.title), \(session.isSelected ? "selected" : "inactive"), \(session.activityDescription)"
-            )
           }
         }
       }
     }
     .padding(10)
-    .frame(width: isCollapsed ? 52 : 230)
+    .frame(width: isCollapsed ? 84 : 230)
     .frame(maxHeight: .infinity)
     .background(customization.configuration.tabBackground.color.opacity(0.72))
     .overlay(alignment: .trailing) {

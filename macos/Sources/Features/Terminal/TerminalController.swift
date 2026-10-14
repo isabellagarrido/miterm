@@ -258,9 +258,13 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         withBaseConfig baseConfig: Ghostty.SurfaceConfiguration? = nil,
         withParent explicitParent: NSWindow? = nil,
         inheritingParentFullscreen: Bool = true,
+        inNewTabGroup: Bool = false,
         onPresented: ((TerminalController, Bool) -> Void)? = nil
     ) -> TerminalController {
         let c = TerminalController.init(ghostty, withBaseConfig: baseConfig)
+        // Prevent macOS's Prefer Tabs setting from merging a separate Stack window.
+        let originalTabbingMode = inNewTabGroup ? c.window?.tabbingMode : nil
+        if inNewTabGroup { c.window?.tabbingMode = .disallowed }
 
         // Get our parent. Our parent is the one explicitly given to us,
         // otherwise the focused terminal, otherwise an arbitrary one.
@@ -300,6 +304,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             // - Creating a window via the Shortcuts app for now.
             // - Creating a window via `New Ghostty Window Here` service.
             let presented = c.showWindowSafely(self)
+            if inNewTabGroup, let mode = originalTabbingMode {
+                c.window?.tabbingMode = mode
+            }
 
             // Only cascade if we aren't fullscreen.
             if let window = c.window {

@@ -52,6 +52,7 @@ struct StackTerminal {
 @MainActor
 protocol StackTerminalCreating {
     func validate(tabCount: Int) throws
+    func currentTerminal() throws -> StackTerminal?
     func newWindow(configuration: Ghostty.SurfaceConfiguration) async throws -> StackTerminal
     func newTab(configuration: Ghostty.SurfaceConfiguration, after: StackTerminal) throws -> StackTerminal
     func select(_ terminal: StackTerminal)
@@ -68,13 +69,14 @@ enum StackLauncher {
     ) async throws -> RunningStack {
         // Validate every directory before creating any process or window.
         let plan = try StackLaunchPlan(definition)
-        try driver.validate(tabCount: plan.tabs.count)
+        let parent = definition.launchLocation == .currentWindow ? try driver.currentTerminal() : nil
+        try driver.validate(tabCount: plan.tabs.count + (parent == nil ? 0 : 1))
         var terminals: [StackTerminal] = []
         do {
             for tab in plan.tabs {
                 var configuration = tab.surfaceConfiguration
                 let terminal: StackTerminal
-                if let previous = terminals.last {
+                if let previous = terminals.last ?? parent {
                     configuration.context = GHOSTTY_SURFACE_CONTEXT_TAB
                     terminal = try driver.newTab(configuration: configuration, after: previous)
                 } else {
@@ -114,12 +116,25 @@ struct GhosttyStackTerminalDriver: StackTerminalCreating {
         }
     }
 
+    func currentTerminal() throws -> StackTerminal? {
+        guard let controller = TerminalController.preferredParent else { return nil }
+        if let fullscreen = controller.fullscreenStyle,
+           fullscreen.isFullscreen && !fullscreen.supportsTabs {
+            throw StackError.terminalCreation("The current window cannot accept tabs in non-native fullscreen. Choose New window or exit fullscreen.")
+        }
+        guard controller.window?.tabbingMode != .disallowed else {
+            throw StackError.terminalCreation("The current window cannot accept tabs. Choose New window instead.")
+        }
+        return try terminal(for: controller)
+    }
+
     func newWindow(configuration: Ghostty.SurfaceConfiguration) async throws -> StackTerminal {
         try await withCheckedThrowingContinuation { continuation in
             _ = TerminalController.newWindow(
                 ghostty,
                 withBaseConfig: configuration,
                 inheritingParentFullscreen: false,
+                inNewTabGroup: true,
                 onPresented: { controller, presented in
                     do {
                         guard presented else {

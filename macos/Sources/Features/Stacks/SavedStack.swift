@@ -7,6 +7,8 @@ struct SavedStack: Codable, Equatable, Identifiable {
     var icon: String?
     var accent: WorkspaceColor?
     var tabs: [StackTabDefinition]
+    /// Missing in older libraries: retain the original separate-window behavior.
+    var launchLocation: StackLaunchLocation?
 
     static func new() -> SavedStack {
         SavedStack(name: "", tabs: [StackTabDefinition(name: "Terminal")])
@@ -107,4 +109,12 @@ enum StackError: LocalizedError {
             return "The starting directory for \(tab) is missing, inaccessible, or not a directory:\n\(path)\nChoose an accessible directory and try again."
         }
     }
+}
+
+enum StackLaunchLocation: String, Codable, CaseIterable, Identifiable {
+    case newWindow
+    case currentWindow
+
+    var id: String { rawValue }
+    var title: String { self == .newWindow ? "New window" : "Current window" }
 }

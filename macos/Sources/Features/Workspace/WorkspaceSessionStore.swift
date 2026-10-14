@@ -154,6 +154,7 @@ final class WorkspaceSessionStore: ObservableObject {
     @Published private(set) var sessions: [WorkspaceSessionSnapshot] = []
     @Published private(set) var runningStacks: [RunningStack] = []
 
+    private let closedWindows = NSHashTable<NSWindow>.weakObjects()
     private var notificationObservers: [NSObjectProtocol] = []
     private var tabGroupObservations: [ObjectIdentifier: [NSKeyValueObservation]] = [:]
     private var controllerObservations: [ObjectIdentifier: AnyCancellable] = [:]
@@ -170,7 +171,16 @@ final class WorkspaceSessionStore: ObservableObject {
                 forName: name,
                 object: nil,
                 queue: .main
-            ) { [weak self] _ in
+            ) { [weak self] notification in
+                MainActor.assumeIsolated {
+                    if let window = notification.object as? NSWindow {
+                        if name == NSWindow.willCloseNotification {
+                            self?.closedWindows.add(window)
+                        } else if name == NSWindow.didBecomeKeyNotification {
+                            self?.closedWindows.remove(window)
+                        }
+                    }
+                }
                 Task { @MainActor [weak self] in
                     self?.refresh()
                 }
@@ -189,6 +199,41 @@ final class WorkspaceSessionStore: ObservableObject {
         refresh()
     }
 
+    func closeSession(_ id: ObjectIdentifier) {
+        guard let controller = sessions.first(where: { $0.id == id })?.window?.windowController as? TerminalController else { return }
+        controller.closeTab(nil)
+    }
+
+    func requestCloseStack(_ id: UUID) {
+        refresh()
+        guard let instance = runningStacks.first(where: { $0.id == id }) else { return }
+        let count = sessions.filter { $0.runningStackID == id }.count
+        let alert = NSAlert()
+        alert.messageText = "Close \(instance.definition.name)?"
+        alert.informativeText = "This closes \(count) tabs in this running Stack and stops their processes. The saved Stack and other running instances remain available."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Close Stack")
+        alert.addButton(withTitle: "Cancel")
+        if let window = NSApp.keyWindow {
+            alert.beginSheetModal(for: window) { response in
+                guard response == .alertFirstButtonReturn else { return }
+                self.closeStackAfterConfirmation(id)
+            }
+        } else if alert.runModal() == .alertFirstButtonReturn {
+            closeStackAfterConfirmation(id)
+        }
+    }
+
+    /// Resolve membership again after confirmation: tabs may have moved or closed.
+    func closeStackAfterConfirmation(_ id: UUID) {
+        guard let instance = runningStacks.first(where: { $0.id == id }) else { return }
+        let controllers = TerminalController.all.filter {
+            !instance.surfaceIDs.isDisjoint(with: Set($0.surfaceTree.map(\.id)))
+        }
+        for controller in controllers { controller.closeTabImmediately() }
+        refresh()
+    }
+
     private func stack(for controller: TerminalController?) -> RunningStack? {
         guard let controller else { return nil }
         let ids = Set(controller.surfaceTree.map(\.id))
@@ -196,7 +241,10 @@ final class WorkspaceSessionStore: ObservableObject {
     }
 
     func refresh() {
-        let controllers = TerminalController.all
+        let controllers = TerminalController.all.filter { controller in
+            guard let window = controller.window else { return false }
+            return !closedWindows.contains(window)
+        }
         let liveSurfaceIDs = Set(controllers.flatMap { $0.surfaceTree.map(\.id) })
         runningStacks = runningStacks.compactMap { instance in
             var instance = instance
