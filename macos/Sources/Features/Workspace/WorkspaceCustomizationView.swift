@@ -60,7 +60,9 @@ private struct WorkspaceColorPickerRow: View {
         .help(isInvalid ? "Enter six hexadecimal digits, such as #AABBCC." : "Enter a hex color, such as #AABBCC.")
         .onChange(of: hexText) { newValue in
           isInvalid = false
-          guard let hex = Self.parseHex(newValue) else { return }
+          guard isHexFieldFocused,
+                let hex = Self.parseHex(newValue),
+                WorkspaceColor(hex: hex) != color else { return }
           color = WorkspaceColor(hex: hex)
         }
         .onChange(of: color) { newColor in
@@ -86,7 +88,8 @@ private struct WorkspaceColorPickerRow: View {
       isInvalid = true
       return
     }
-    color = WorkspaceColor(hex: hex)
+    let committedColor = WorkspaceColor(hex: hex)
+    if color != committedColor { color = committedColor }
     hexText = "#\(color.hexString.uppercased())"
     isInvalid = false
   }
@@ -430,9 +433,6 @@ struct WorkspaceCustomizationView: View {
     }
     .onAppear {
       loadTerminalColorDraft(terminalColorThemes.activeThemeID)
-      if terminalColorThemes.activeThemeID != TerminalColorTheme.workspaceDefaultID {
-        terminalColorThemes.preview(terminalColorDraft)
-      }
     }
     .onDisappear { terminalColorThemes.restoreActiveTheme() }
   }
@@ -513,6 +513,7 @@ struct WorkspaceCustomizationView: View {
       color: Binding(
         get: { terminalColorDraft[keyPath: keyPath] },
         set: { color in
+          guard terminalColorDraft[keyPath: keyPath] != color else { return }
           terminalColorDraft[keyPath: keyPath] = color
           terminalColorThemes.preview(terminalColorDraft)
         }
@@ -526,6 +527,7 @@ struct WorkspaceCustomizationView: View {
       color: Binding(
         get: { terminalColorDraft.palette[index] },
         set: { color in
+          guard terminalColorDraft.palette[index] != color else { return }
           terminalColorDraft.palette[index] = color
           terminalColorThemes.preview(terminalColorDraft)
         }
