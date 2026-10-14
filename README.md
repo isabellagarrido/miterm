@@ -27,10 +27,6 @@ without a distribution signing identity.
 
 The app is written to `macos/build/ReleaseLocal/MiTerm.app`. This project is based on [Ghostty](https://github.com/ghostty-org/ghostty); see [HACKING.md](HACKING.md) for build requirements.
 
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for MiTerm development and review guidance.
-
 ## License and acknowledgments
 
 MiTerm builds on Ghostty and is distributed under the [MIT license](LICENSE).
