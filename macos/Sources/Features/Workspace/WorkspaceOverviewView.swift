@@ -2,10 +2,20 @@ import AppKit
 import SwiftUI
 
 struct WorkspaceSessionSidebar: View {
+  private static let sidebarWidthKey = "WorkspaceSessionSidebarWidth"
+  private static let defaultSidebarWidth: CGFloat = 230
+  private static let minimumSidebarWidth: CGFloat = 180
+  private static let maximumSidebarWidth: CGFloat = 480
+
   @ObservedObject private var sessionStore = WorkspaceSessionStore.shared
   @ObservedObject private var iconStore = WorkspaceSessionIconStore.shared
   @ObservedObject private var customization = WorkspaceCustomizationStore.shared
   @State private var isCollapsed = false
+  @State private var sidebarWidth: CGFloat = {
+    let savedWidth = UserDefaults.ghostty.double(forKey: sidebarWidthKey)
+    return savedWidth > 0 ? CGFloat(savedWidth) : defaultSidebarWidth
+  }()
+  @State private var dragStartWidth: CGFloat?
   @State private var hoveredSessionID: ObjectIdentifier?
   @FocusState private var focusedSessionID: ObjectIdentifier?
   @FocusState private var focusedCloseSessionID: ObjectIdentifier?
@@ -100,13 +110,38 @@ struct WorkspaceSessionSidebar: View {
       }
     }
     .padding(10)
-    .frame(width: isCollapsed ? 52 : 230)
+    .frame(width: isCollapsed ? 52 : sidebarWidth)
     .frame(maxHeight: .infinity)
     .background(customization.configuration.tabBackground.color.opacity(0.72))
     .overlay(alignment: .trailing) {
-      Rectangle()
-        .fill(customization.configuration.borderColor.color)
-        .frame(width: 1)
+      ZStack(alignment: .trailing) {
+        Rectangle()
+          .fill(customization.configuration.borderColor.color)
+          .frame(width: 1)
+
+        Rectangle()
+          .fill(.clear)
+          .frame(width: 7)
+          .contentShape(Rectangle())
+          .gesture(
+            DragGesture(minimumDistance: 1)
+              .onChanged { value in
+                guard !isCollapsed else { return }
+                if dragStartWidth == nil { dragStartWidth = sidebarWidth }
+                let startWidth = dragStartWidth ?? sidebarWidth
+                sidebarWidth = min(
+                  max(startWidth + value.translation.width, Self.minimumSidebarWidth),
+                  Self.maximumSidebarWidth
+                )
+              }
+              .onEnded { _ in
+                dragStartWidth = nil
+                UserDefaults.ghostty.set(Double(sidebarWidth), forKey: Self.sidebarWidthKey)
+              }
+          )
+          .accessibilityLabel("Resize session sidebar")
+          .help("Drag to resize session sidebar")
+      }
     }
     .onAppear { sessionStore.refresh() }
   }
