@@ -162,7 +162,60 @@ struct WorkspaceCustomizationView: View {
     VStack(alignment: .leading, spacing: 18) {
       sectionHeader(
         "Appearance",
-        subtitle: "Choose a appearance theme. Terminal grid styling is configured separately.")
+        subtitle: "Choose an appearance theme. Match its terminal colors or select a separate palette.")
+
+      VStack(alignment: .leading, spacing: 10) {
+        Text("Curated color pairings")
+          .font(.system(size: 15, weight: .semibold))
+        Text("Apply a workspace look and a contrasting terminal palette together. You can still change either one separately.")
+          .font(.system(size: 12))
+          .foregroundStyle(.secondary)
+
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 10)], alignment: .leading, spacing: 10) {
+          ForEach(CozyThemePairing.all) { pairing in
+            let isSelected = store.configuration.baseTheme == pairing.appearance
+              && terminalColorThemes.activeThemeID == pairing.terminalThemeID
+            Button {
+              store.selectBaseTheme(pairing.appearance)
+              terminalColorThemes.select(pairing.terminalThemeID)
+              loadTerminalColorDraft(pairing.terminalThemeID)
+            } label: {
+              VStack(alignment: .leading, spacing: 9) {
+                HStack(spacing: 4) {
+                  ForEach(0..<8, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: 2)
+                      .fill(pairing.terminalTheme.palette[index].color)
+                      .frame(height: 14)
+                  }
+                }
+                Text(pairing.name)
+                  .font(.system(size: 12, weight: .semibold))
+                  .foregroundStyle(Color(nsColor: pairing.appearance.previewForegroundColor))
+                  .lineLimit(1)
+                Text(pairing.detail)
+                  .font(.system(size: 11))
+                  .foregroundStyle(Color(nsColor: pairing.appearance.previewForegroundColor).opacity(0.78))
+                  .multilineTextAlignment(.leading)
+                  .frame(maxWidth: .infinity, minHeight: 30, alignment: .topLeading)
+              }
+              .padding(11)
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .background(
+                Color(nsColor: pairing.appearance.previewSurfaceColor),
+                in: RoundedRectangle(cornerRadius: 9)
+              )
+              .overlay {
+                RoundedRectangle(cornerRadius: 9)
+                  .strokeBorder(isSelected ? Color.accentColor : Color(nsColor: .separatorColor), lineWidth: isSelected ? 2 : 1)
+              }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Apply \(pairing.name)")
+            .help("Apply both the workspace appearance and terminal palette")
+          }
+        }
+      }
+
       Picker(
         "Base theme",
         selection: Binding(
@@ -174,9 +227,9 @@ struct WorkspaceCustomizationView: View {
           Text(theme.name).tag(theme)
         }
       }
-      .pickerStyle(.segmented)
+      .pickerStyle(.menu)
 
-      HStack(spacing: 12) {
+      LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 12)], alignment: .leading, spacing: 12) {
         ForEach(WorkspaceTabTheme.allCases) { theme in
           VStack(alignment: .leading, spacing: 8) {
             RoundedRectangle(cornerRadius: 9)
@@ -185,11 +238,11 @@ struct WorkspaceCustomizationView: View {
               .overlay(alignment: .bottomLeading) {
                 Text(theme.name)
                   .font(
-                    theme == .newspaper
+                    theme.usesSerifTypography
                       ? .system(size: 15, design: .serif)
                       : .system(
                         size: 14, weight: .semibold,
-                        design: theme == .pixel ? .monospaced : .default)
+                        design: theme.usesMonospacedTypography ? .monospaced : .default)
                   )
                   .foregroundStyle(Color(nsColor: theme.previewForegroundColor))
                   .padding(12)
@@ -406,6 +459,7 @@ struct WorkspaceCustomizationView: View {
               terminalColorPicker("Background", keyPath: \.background)
               terminalColorPicker("Foreground", keyPath: \.foreground)
               terminalColorPicker("Cursor", keyPath: \.cursor)
+              cursorTextColorPicker
               terminalColorPicker("Selection background", keyPath: \.selectionBackground)
               terminalColorPicker("Selection foreground", keyPath: \.selectionForeground)
             }
@@ -456,9 +510,11 @@ struct WorkspaceCustomizationView: View {
               .frame(height: 15)
           }
         }
-        Rectangle()
-          .fill(terminalColorDraft.cursor.color)
-          .frame(width: 9, height: 18)
+        Text("a")
+          .font(.system(size: 12, weight: .medium, design: .monospaced))
+          .foregroundStyle((terminalColorDraft.cursorText ?? terminalColorDraft.foreground).color)
+          .frame(width: 12, height: 19)
+          .background(terminalColorDraft.cursor.color, in: RoundedRectangle(cornerRadius: 2))
       }
       .font(.system(size: 13, design: .monospaced))
       .padding(16)
@@ -515,6 +571,19 @@ struct WorkspaceCustomizationView: View {
         set: { color in
           guard terminalColorDraft[keyPath: keyPath] != color else { return }
           terminalColorDraft[keyPath: keyPath] = color
+          terminalColorThemes.preview(terminalColorDraft)
+        }
+      )
+    )
+  }
+
+  private var cursorTextColorPicker: some View {
+    WorkspaceColorPickerRow(
+      "Cursor text",
+      color: Binding(
+        get: { terminalColorDraft.cursorText ?? terminalColorDraft.foreground },
+        set: { color in
+          terminalColorDraft.cursorText = color
           terminalColorThemes.preview(terminalColorDraft)
         }
       )
@@ -641,7 +710,7 @@ struct WorkspaceCustomizationView: View {
         .padding(.top, 8)
       }
       Text(
-        "Native tabs remain available as a presentation option. The MiTerm strip switches tabs but does not simulate drag reordering; Ghostty continues to manage the underlying AppKit tab groups."
+        "Native tabs remain available as a presentation option. Drag tabs in the MiTerm strip or sidebar to reorder their AppKit tab group."
       )
       .font(.system(size: 12))
       .foregroundStyle(.secondary)

@@ -112,6 +112,7 @@ class AppDelegate: NSObject,
     private var workspaceCustomizationWindow: NSWindow?
     private var workspaceOverviewWindow: NSWindow?
     private var stackManagerWindow: NSWindow?
+    private weak var stackManagerSourceWindow: NSWindow?
 
     /// The ghostty global state. Only one per process.
     let ghostty: Ghostty.App
@@ -1012,6 +1013,11 @@ class AppDelegate: NSObject,
     }
 
     @IBAction func showStackManager(_ sender: Any?) {
+        showStackManager(from: NSApp.keyWindow)
+    }
+
+    func showStackManager(from sourceWindow: NSWindow?) {
+        stackManagerSourceWindow = sourceWindow
         if stackManagerWindow == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: 860, height: 620),
@@ -1030,6 +1036,29 @@ class AppDelegate: NSObject,
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    var canCaptureCurrentTabGroupAsStack: Bool {
+        guard let sourceWindow = stackManagerSourceWindow else { return false }
+        return (sourceWindow.tabGroup?.windows ?? [sourceWindow]).contains {
+            ($0.windowController as? BaseTerminalController)?.surfaceTree.isEmpty == false
+        }
+    }
+
+    func stackDraftFromCurrentTabGroup() -> SavedStack? {
+        guard let sourceWindow = stackManagerSourceWindow else { return nil }
+        let windows = sourceWindow.tabGroup?.windows ?? [sourceWindow]
+        let fallbackDirectory = FileManager.default.homeDirectoryForCurrentUser.path
+        let tabs = windows.enumerated().compactMap { index, window -> StackTabDefinition? in
+            guard let controller = window.windowController as? BaseTerminalController,
+                  let surface = controller.surfaceTree.first else { return nil }
+            let directory = surface.pwd.flatMap { $0.hasPrefix("/") ? $0 : nil } ?? fallbackDirectory
+            let title = window.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            let name = title.isEmpty ? "Terminal \(index + 1)" : title
+            return StackTabDefinition(name: name, directory: directory)
+        }
+        guard !tabs.isEmpty else { return nil }
+        return SavedStack(name: "", tabs: tabs, launchLocation: .newWindow)
+    }
+
     @IBAction func setWorkspaceTabTheme(_ sender: NSMenuItem) {
         guard let theme = WorkspaceTabTheme.allCases.first(where: { $0.menuTag == sender.tag }) else { return }
         selectWorkspaceTabTheme(theme)
@@ -1044,8 +1073,8 @@ class AppDelegate: NSObject,
     @IBAction func showWorkspaceThemePicker(_ sender: Any?) {
         if workspaceThemePickerWindow == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 790, height: 390),
-                styleMask: [.titled, .closable],
+                contentRect: NSRect(x: 0, y: 0, width: 900, height: 690),
+                styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered,
                 defer: false
             )

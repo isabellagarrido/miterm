@@ -369,6 +369,48 @@
                                                 <action selector="setWorkspaceTabTheme:" target="bbz-4X-AYv" id="Wsp-Theme-Gruvbox-Action"/>
                                             </connections>
                                         </menuItem>
+                                        <menuItem title="Amethyst" tag="4" id="Wsp-Theme-Amethyst">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="setWorkspaceTabTheme:" target="bbz-4X-AYv" id="Wsp-Theme-Amethyst-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Raspberry Cream" tag="5" id="Wsp-Theme-Raspberry-Cream">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="setWorkspaceTabTheme:" target="bbz-4X-AYv" id="Wsp-Theme-Raspberry-Cream-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Cambridge Sunset" tag="6" id="Wsp-Theme-Cambridge-Sunset">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="setWorkspaceTabTheme:" target="bbz-4X-AYv" id="Wsp-Theme-Cambridge-Sunset-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Forest Market" tag="7" id="Wsp-Theme-Forest-Market">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="setWorkspaceTabTheme:" target="bbz-4X-AYv" id="Wsp-Theme-Forest-Market-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Crimson Orchard" tag="8" id="Wsp-Theme-Crimson-Orchard">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="setWorkspaceTabTheme:" target="bbz-4X-AYv" id="Wsp-Theme-Crimson-Orchard-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Terracotta Evening" tag="9" id="Wsp-Theme-Terracotta-Evening">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="setWorkspaceTabTheme:" target="bbz-4X-AYv" id="Wsp-Theme-Terracotta-Evening-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Retro Pop" tag="10" id="Wsp-Theme-Retro-Pop">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="setWorkspaceTabTheme:" target="bbz-4X-AYv" id="Wsp-Theme-Retro-Pop-Action"/>
+                                            </connections>
+                                        </menuItem>
                                     </items>
                                 </menu>
                             </menuItem>
