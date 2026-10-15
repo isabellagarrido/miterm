@@ -58,10 +58,10 @@ struct WorkspaceTabStripView: View {
                         (item.isSelected
                          ? configuration.selectedTabBackground
                          : configuration.tabBackground).color,
-                        in: RoundedRectangle(cornerRadius: configuration.cornerRadius)
+                        in: RoundedRectangle(cornerRadius: max(8, configuration.cornerRadius))
                     )
                     .overlay {
-                        RoundedRectangle(cornerRadius: configuration.cornerRadius)
+                        RoundedRectangle(cornerRadius: max(8, configuration.cornerRadius))
                             .strokeBorder(
                                 (item.isSelected
                                  ? configuration.selectedBorderColor
@@ -74,7 +74,30 @@ struct WorkspaceTabStripView: View {
                             Button("Close Tab") { sessions.closeSession(session.id) }
                         }
                     }
+                    .draggable(item.id)
+                    .dropDestination(for: String.self) { identifiers, _ in
+                        guard let identifier = identifiers.first,
+                              let source = sessions.sessions.first(where: {
+                                  String(describing: $0.id) == identifier
+                              })?.id,
+                              let target = item.session?.id else { return false }
+                        sessions.moveSession(source, before: target)
+                        return true
+                    }
                 }
+                Button {
+                    guard let window = items.first(where: \.isSelected)?.session?.window
+                            ?? items.compactMap(\.session).first?.window else { return }
+                    sessions.newTab(in: window)
+                } label: {
+                    Image(systemName: "plus")
+                        .font(.system(size: 12, weight: .semibold))
+                        .frame(minWidth: 28, minHeight: 28)
+                        .contentShape(RoundedRectangle(cornerRadius: 8))
+                }
+                .buttonStyle(.plain)
+                .help("New tab")
+                .accessibilityLabel("New tab")
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)

@@ -9,6 +9,7 @@ private struct StackUIError: Identifiable {
 struct StackManagerView: View {
     @EnvironmentObject private var app: AppDelegate
     @ObservedObject private var store = StackDefinitionStore.shared
+    @ObservedObject private var customization = WorkspaceCustomizationStore.shared
     @State private var editing: SavedStack?
     @State private var deleting: SavedStack?
     @State private var failure: StackUIError?
@@ -25,6 +26,16 @@ struct StackManagerView: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
+                Button {
+                    if let draft = app.stackDraftFromCurrentTabGroup() {
+                        editing = draft
+                    }
+                } label: {
+                    Label("Save Current Tab Group…", systemImage: "square.stack.3d.up.badge.plus")
+                }
+                .disabled(store.loadError != nil || !app.canCaptureCurrentTabGroupAsStack)
+                .help("Create a Stack from the tabs in the terminal window you came from")
+
                 Button { editing = .new() } label: {
                     Label("New Stack", systemImage: "plus")
                 }
@@ -82,7 +93,7 @@ struct StackManagerView: View {
         }
         .padding(28)
         .frame(minWidth: 720, minHeight: 500)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(customization.configuration.tabBackground.color.opacity(0.28))
         .onAppear { WorkspaceSessionStore.shared.refresh() }
         .sheet(item: $editing) { stack in
             StackEditorView(original: stack) { draft in try store.save(draft) }
@@ -157,10 +168,10 @@ struct StackManagerView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
+        .background(customization.configuration.selectedTabBackground.color, in: RoundedRectangle(cornerRadius: 16))
         .overlay {
             RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color(nsColor: .separatorColor).opacity(0.5))
+                .strokeBorder(customization.configuration.borderColor.color.opacity(0.7))
         }
     }
 

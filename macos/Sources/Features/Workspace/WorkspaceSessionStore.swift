@@ -15,6 +15,7 @@ struct WorkspaceSessionSnapshot: Identifiable {
     let hasActiveBell: Bool
     let runningStackID: UUID?
     let stackName: String?
+    let panes: [WorkspacePaneSnapshot]
 
     var window: NSWindow? { windowReference.value }
 
@@ -30,10 +31,38 @@ struct WorkspaceSessionSnapshot: Identifiable {
         hasActiveBell = controller?.bell ?? false
         runningStackID = stack?.id
         stackName = stack?.definition.name
+        panes = controller.map { controller in
+            Array(controller.surfaceTree.enumerated()).map { index, surface in
+                WorkspacePaneSnapshot(
+                    id: surface.id,
+                    title: surface.title,
+                    directory: surface.pwd,
+                    isFocused: controller.focusedSurface == surface,
+                    surfaceReference: Weak(surface),
+                    index: index
+                )
+            }
+        } ?? []
     }
 
     var activityDescription: String {
-        hasActiveBell ? "Bell active" : "No activity signal"
+        hasActiveBell ? "Bell active" : "No bell"
+    }
+}
+
+struct WorkspacePaneSnapshot: Identifiable {
+    let id: UUID
+    let title: String
+    let directory: String?
+    let isFocused: Bool
+    let surfaceReference: Weak<Ghostty.SurfaceView>
+    let index: Int
+
+    var surface: Ghostty.SurfaceView? { surfaceReference.value }
+
+    var displayTitle: String {
+        let value = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? "Pane \(index + 1)" : value
     }
 }
 
@@ -157,7 +186,8 @@ final class WorkspaceSessionStore: ObservableObject {
     private let closedWindows = NSHashTable<NSWindow>.weakObjects()
     private var notificationObservers: [NSObjectProtocol] = []
     private var tabGroupObservations: [ObjectIdentifier: [NSKeyValueObservation]] = [:]
-    private var controllerObservations: [ObjectIdentifier: AnyCancellable] = [:]
+    private var controllerObservations: [ObjectIdentifier: [AnyCancellable]] = [:]
+    private var surfaceObservations: [ObjectIdentifier: [UUID: AnyCancellable]] = [:]
 
     private init() {
         let center = NotificationCenter.default
@@ -202,6 +232,30 @@ final class WorkspaceSessionStore: ObservableObject {
     func closeSession(_ id: ObjectIdentifier) {
         guard let controller = sessions.first(where: { $0.id == id })?.window?.windowController as? TerminalController else { return }
         controller.closeTab(nil)
+    }
+
+    func newTab(in window: NSWindow) {
+        guard let ghostty = (NSApp.delegate as? AppDelegate)?.ghostty else { return }
+        _ = TerminalController.newTab(ghostty, from: window)
+        refresh()
+    }
+
+    func moveSession(_ sourceID: ObjectIdentifier, before targetID: ObjectIdentifier) {
+        guard sourceID != targetID,
+              let source = sessions.first(where: { $0.id == sourceID })?.window,
+              let target = sessions.first(where: { $0.id == targetID })?.window,
+              let group = source.tabGroup,
+              target.tabGroup === group,
+              group.windows.contains(source),
+              group.windows.contains(target) else { return }
+
+        let selectedWindow = group.selectedWindow
+        group.removeWindow(source)
+        target.addTabbedWindowSafely(source, ordered: .below)
+        if let selectedWindow, group.windows.contains(selectedWindow) {
+            group.selectedWindow = selectedWindow
+        }
+        refresh()
     }
 
     private func stack(for controller: TerminalController?) -> RunningStack? {
@@ -262,6 +316,14 @@ final class WorkspaceSessionStore: ObservableObject {
         refresh()
     }
 
+    func focusPane(_ paneID: UUID, in sessionID: ObjectIdentifier) {
+        guard let session = sessions.first(where: { $0.id == sessionID }),
+              let pane = session.panes.first(where: { $0.id == paneID }),
+              let surface = pane.surface,
+              let controller = session.window?.windowController as? BaseTerminalController else { return }
+        controller.focusSurface(surface)
+    }
+
     private func observeTabGroups(_ groups: [NSWindowTabGroup]) {
         var activeGroupIDs = Set<ObjectIdentifier>()
         for group in groups {
@@ -296,16 +358,32 @@ final class WorkspaceSessionStore: ObservableObject {
     private func observeControllers(_ controllers: [TerminalController]) {
         let activeIDs = Set(controllers.compactMap { $0.window.map(ObjectIdentifier.init) })
         controllerObservations = controllerObservations.filter { activeIDs.contains($0.key) }
+        surfaceObservations = surfaceObservations.filter { activeIDs.contains($0.key) }
 
         for controller in controllers {
             guard let window = controller.window else { continue }
             let id = ObjectIdentifier(window)
-            guard controllerObservations[id] == nil else { continue }
-            controllerObservations[id] = controller.$bell
-                .dropFirst()
-                .sink { [weak self] _ in
-                    Task { @MainActor [weak self] in self?.refresh() }
-                }
+            if controllerObservations[id] == nil {
+                controllerObservations[id] = [
+                    controller.$bell.dropFirst().sink { [weak self] _ in
+                        Task { @MainActor [weak self] in self?.refresh() }
+                    },
+                    controller.$surfaceTree.dropFirst().sink { [weak self] _ in
+                        Task { @MainActor [weak self] in self?.refresh() }
+                    },
+                ]
+            }
+
+            var observations = surfaceObservations[id] ?? [:]
+            let activeSurfaceIDs = Set(controller.surfaceTree.map(\.id))
+            observations = observations.filter { activeSurfaceIDs.contains($0.key) }
+            for surface in controller.surfaceTree where observations[surface.id] == nil {
+                observations[surface.id] = surface.objectWillChange
+                    .sink { [weak self] in
+                        Task { @MainActor [weak self] in self?.refresh() }
+                    }
+            }
+            surfaceObservations[id] = observations
         }
     }
 }

@@ -162,11 +162,15 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                 Label("Overview", systemImage: "square.grid.2x2")
             }
             .help("Session Overview")
-            .contextMenu {
-                Button("Manage Stacks…") {
-                    (NSApp.delegate as? AppDelegate)?.showStackManager(nil)
-                }
+
+            Button {
+                (NSApp.delegate as? AppDelegate)?.showStackManager(
+                    from: (delegate as? BaseTerminalController)?.window
+                )
+            } label: {
+                Label("Stacks", systemImage: "square.stack.3d.up")
             }
+            .help("Manage Stacks")
 
             if workspaceCustomization.tabPresentation != .sidebarOnly {
                 Button {

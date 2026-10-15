@@ -45,16 +45,20 @@ struct WorkspaceThemePickerView: View {
                     .foregroundStyle(.secondary)
             }
 
-            HStack(alignment: .top, spacing: 14) {
-                ForEach(WorkspaceTabTheme.allCases) { theme in
-                    WorkspaceThemeCard(
-                        theme: theme,
-                        isSelected: customization.activeProfileID == WorkspaceThemeProfile.presetID(for: theme)
-                    ) {
-                        appDelegate.selectWorkspaceTabTheme(theme)
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                    ForEach(WorkspaceTabTheme.allCases) { theme in
+                        WorkspaceThemeCard(
+                            theme: theme,
+                            isSelected: customization.activeProfileID == WorkspaceThemeProfile.presetID(for: theme)
+                        ) {
+                            appDelegate.selectWorkspaceTabTheme(theme)
+                        }
                     }
                 }
+                .padding(2)
             }
+            .frame(maxHeight: .infinity)
 
             if !customization.customProfiles.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
@@ -83,13 +87,13 @@ struct WorkspaceThemePickerView: View {
 
             HStack(spacing: 6) {
                 Image(systemName: "info.circle")
-                Text("Minimal follows your Ghostty config. Newspaper and Pixel include terminal palettes; Gruvbox appearance styling pairs with the separate Gruvbox terminal theme.")
+                Text("Choose Use appearance theme for matching terminal colors, or select a separate terminal palette in Customize Appearance.")
             }
             .font(.system(size: 11))
             .foregroundStyle(.secondary)
         }
         .padding(22)
-        .frame(width: 790, height: customization.customProfiles.isEmpty ? 390 : 455)
+        .frame(width: 900, height: customization.customProfiles.isEmpty ? 690 : 750)
         .background(Color(nsColor: .windowBackgroundColor))
     }
 }
@@ -155,7 +159,7 @@ private struct WorkspaceThemeCard: View {
                         .frame(width: 6, height: 6)
                 }
                 Text("workspace  /  shell")
-                    .font(.system(size: 8, weight: .medium, design: theme == .newspaper ? .serif : .monospaced))
+                    .font(.system(size: 8, weight: .medium, design: theme.usesSerifTypography ? .serif : .monospaced))
                     .foregroundStyle(Color(nsColor: theme.previewForegroundColor).opacity(0.75))
                     .padding(.leading, 5)
                 Spacer()
@@ -174,7 +178,7 @@ private struct WorkspaceThemeCard: View {
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
 
                 Text("Ready when you are.")
-                    .font(.system(size: 10, design: theme == .newspaper ? .serif : .monospaced))
+                    .font(.system(size: 10, design: theme.usesSerifTypography ? .serif : .monospaced))
                     .foregroundStyle(Color(nsColor: theme.previewForegroundColor).opacity(0.76))
 
                 HStack(spacing: 3) {

@@ -19,6 +19,14 @@ struct WorkspaceSessionSidebar: View {
             .font(.system(size: 13, weight: .semibold))
         }
         Spacer(minLength: 2)
+        Button { sessionStore.newTab(in: window) } label: {
+          Image(systemName: "plus")
+            .font(.system(size: 12, weight: .semibold))
+            .frame(width: 22, height: 22)
+        }
+        .buttonStyle(.plain)
+        .help("New tab")
+        .accessibilityLabel("New tab")
         Button {
           withAnimation(.easeInOut(duration: 0.18)) { isCollapsed.toggle() }
         } label: {
@@ -38,8 +46,7 @@ struct WorkspaceSessionSidebar: View {
                 Button {
                   item.select()
                 } label: {
-                  sessionRow(session)
-                    .padding(.trailing, showsClose && !isCollapsed ? 24 : 0)
+                  sessionRow(session, showingCloseButton: showsClose)
                     .opacity(showsClose && isCollapsed ? 0 : 1)
                 }
                 .frame(maxWidth: .infinity)
@@ -53,8 +60,10 @@ struct WorkspaceSessionSidebar: View {
                   Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .semibold))
                     .padding(5)
+                    .frame(width: 20, height: 20)
                 }
                 .buttonStyle(.plain)
+                .padding(.trailing, 6)
                 .focused($focusedCloseSessionID, equals: session.id)
                 .help("Close tab")
                 .accessibilityLabel("Close \(session.title)")
@@ -76,6 +85,15 @@ struct WorkspaceSessionSidebar: View {
               .contextMenu {
                 Button("Close Tab") { sessionStore.closeSession(session.id) }
               }
+              .draggable(String(describing: session.id))
+              .dropDestination(for: String.self) { identifiers, _ in
+                guard let identifier = identifiers.first,
+                      let source = sessionStore.sessions.first(where: {
+                        String(describing: $0.id) == identifier
+                      })?.id else { return false }
+                sessionStore.moveSession(source, before: session.id)
+                return true
+              }
             }
           }
         }
@@ -94,7 +112,10 @@ struct WorkspaceSessionSidebar: View {
   }
 
   @ViewBuilder
-  private func sessionRow(_ session: WorkspaceSessionSnapshot) -> some View {
+  private func sessionRow(
+    _ session: WorkspaceSessionSnapshot,
+    showingCloseButton: Bool
+  ) -> some View {
     HStack(spacing: 9) {
       WorkspaceSessionIconView(icon: iconStore.icon(for: session), size: 14)
         .font(.system(size: 13, weight: .medium))
@@ -112,18 +133,23 @@ struct WorkspaceSessionSidebar: View {
             .font(customization.configuration.font.font(size: 12))
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .leading)
-          Text(session.hasActiveBell ? "Bell" : "Output activity unavailable")
-            .font(.system(size: 10))
-            .foregroundStyle(customization.configuration.tabForeground.color.opacity(0.68))
-            .lineLimit(1)
+          if session.hasActiveBell {
+            Text("Bell active")
+              .font(.system(size: 10))
+              .foregroundStyle(customization.configuration.tabForeground.color.opacity(0.68))
+              .lineLimit(1)
+          }
         }
 
-        if session.isSelected {
-          Circle()
-            .fill(customization.configuration.selectedBorderColor.color)
-            .frame(width: 7, height: 7)
-            .accessibilityLabel("Selected")
+        ZStack(alignment: .trailing) {
+          if session.isSelected && !showingCloseButton {
+            Circle()
+              .fill(customization.configuration.selectedBorderColor.color)
+              .frame(width: 7, height: 7)
+              .accessibilityLabel("Selected")
+          }
         }
+        .frame(width: 20, height: 12)
       }
     }
     .foregroundStyle(customization.configuration.tabForeground.color)
@@ -132,11 +158,11 @@ struct WorkspaceSessionSidebar: View {
     .background(
       session.isSelected
         ? customization.configuration.selectedTabBackground.color
-        : Color.clear,
-      in: RoundedRectangle(cornerRadius: customization.configuration.cornerRadius)
+        : customization.configuration.tabBackground.color.opacity(0.28),
+      in: RoundedRectangle(cornerRadius: max(8, customization.configuration.cornerRadius))
     )
     .overlay {
-      RoundedRectangle(cornerRadius: customization.configuration.cornerRadius)
+      RoundedRectangle(cornerRadius: max(8, customization.configuration.cornerRadius))
         .strokeBorder(
           session.isSelected
             ? customization.configuration.selectedBorderColor.color
@@ -144,7 +170,7 @@ struct WorkspaceSessionSidebar: View {
           lineWidth: 1
         )
     }
-    .contentShape(RoundedRectangle(cornerRadius: customization.configuration.cornerRadius))
+    .contentShape(RoundedRectangle(cornerRadius: max(8, customization.configuration.cornerRadius)))
   }
 }
 
@@ -163,7 +189,7 @@ struct WorkspaceOverviewView: View {
       VStack(alignment: .leading, spacing: 4) {
         Text("Session Overview")
           .font(.system(size: 22, weight: .semibold))
-        Text("Open terminal tabs from Ghostty’s window groups.")
+        Text("Choose a tab or focus one of its panes.")
           .font(.system(size: 13))
           .foregroundStyle(.secondary)
       }
@@ -190,6 +216,8 @@ struct WorkspaceOverviewView: View {
                 isDropTarget: dropTarget == session.id
               ) {
                 sessionStore.selectSession(session.id)
+              } focusPane: { paneID in
+                sessionStore.focusPane(paneID, in: session.id)
               }
               .draggable(String(describing: session.id))
               .dropDestination(for: String.self) { identifiers, _ in
@@ -254,70 +282,124 @@ private struct WorkspaceSessionWidget: View {
   let configuration: WorkspaceThemeConfiguration
   let isDropTarget: Bool
   let action: () -> Void
+  let focusPane: (UUID) -> Void
 
   var body: some View {
-    Button(action: action) {
-      VStack(alignment: .leading, spacing: 13) {
-        HStack(alignment: .top) {
+    VStack(alignment: .leading, spacing: 11) {
+      Button(action: action) {
+        HStack(alignment: .top, spacing: 10) {
           WorkspaceSessionIconView(icon: iconStore.icon(for: session), size: 16)
             .font(.system(size: 15, weight: .medium))
             .foregroundStyle(configuration.tabForeground.color.opacity(0.8))
-          if session.hasActiveBell {
-            Image(systemName: "bell.badge.fill")
-              .font(.system(size: 11, weight: .semibold))
-              .foregroundStyle(Color.accentColor)
-          }
-          Spacer()
-          Label(
-            session.isSelected ? "Selected" : "Inactive",
-            systemImage: session.isSelected ? "circle.inset.filled" : "circle"
-          )
-          .font(.system(size: 11, weight: .medium))
-          .foregroundStyle(
-            session.isSelected
-              ? configuration.selectedBorderColor.color
-              : configuration.tabForeground.color.opacity(0.65))
-        }
-
-        if let stackName = session.stackName {
-          Label(stackName, systemImage: "square.stack.3d.up")
+          VStack(alignment: .leading, spacing: 4) {
+            Text(session.title)
+              .font(configuration.font.font(size: configuration.fontSize + 1))
+              .lineLimit(2)
+              .multilineTextAlignment(.leading)
+            HStack(spacing: 5) {
+              Image(systemName: session.isSelected ? "circle.inset.filled" : "circle")
+              Text(session.isSelected ? "Selected tab" : "Open tab")
+              if !session.panes.isEmpty {
+                Text("·")
+                Text("\(session.panes.count) \(session.panes.count == 1 ? "pane" : "panes")")
+              }
+              if session.hasActiveBell {
+                Image(systemName: "bell.badge.fill")
+                  .foregroundStyle(Color.accentColor)
+                Text("Bell active")
+              }
+            }
             .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(configuration.tabForeground.color.opacity(0.7))
-            .lineLimit(1)
+            .foregroundStyle(
+              session.isSelected
+                ? configuration.selectedBorderColor.color
+                : configuration.tabForeground.color.opacity(0.65))
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+          Image(systemName: "arrow.up.forward")
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(configuration.tabForeground.color.opacity(0.55))
         }
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .help("Open this tab")
 
-        Text(session.title)
-          .font(configuration.font.font(size: configuration.fontSize + 1))
-          .lineLimit(2)
-          .multilineTextAlignment(.leading)
-          .frame(maxWidth: .infinity, minHeight: 38, alignment: .topLeading)
-
-        HStack(spacing: 6) {
-          Image(systemName: session.hasActiveBell ? "bell.badge" : "minus.circle")
-          Text(session.activityDescription)
+      if session.panes.count > 1 {
+        Divider().overlay(configuration.borderColor.color.opacity(0.55))
+        VStack(spacing: 5) {
+          ForEach(session.panes) { pane in
+            Button { focusPane(pane.id) } label: {
+              HStack(spacing: 8) {
+                Image(systemName: pane.isFocused ? "circle.inset.filled" : "terminal")
+                  .font(.system(size: 11, weight: .medium))
+                  .foregroundStyle(
+                    pane.isFocused
+                      ? configuration.selectedBorderColor.color
+                      : configuration.tabForeground.color.opacity(0.7))
+                VStack(alignment: .leading, spacing: 2) {
+                  Text(pane.displayTitle)
+                    .font(.system(size: 12, weight: pane.isFocused ? .semibold : .medium))
+                    .lineLimit(1)
+                  if let directory = pane.directory, !directory.isEmpty {
+                    Text(directory)
+                      .font(.system(size: 10, design: .monospaced))
+                      .foregroundStyle(configuration.tabForeground.color.opacity(0.62))
+                      .lineLimit(1)
+                      .truncationMode(.middle)
+                  }
+                }
+                Spacer(minLength: 4)
+                if pane.isFocused {
+                  Text("Focused")
+                    .font(.system(size: 10, weight: .medium))
+                    .foregroundStyle(configuration.selectedBorderColor.color)
+                }
+              }
+              .padding(.horizontal, 8)
+              .padding(.vertical, 6)
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .background(
+                pane.isFocused
+                  ? configuration.selectedTabBackground.color.opacity(0.72)
+                  : Color.clear,
+                in: RoundedRectangle(cornerRadius: max(6, configuration.cornerRadius))
+              )
+              .contentShape(RoundedRectangle(cornerRadius: max(6, configuration.cornerRadius)))
+            }
+            .buttonStyle(.plain)
+            .help("Focus \(pane.displayTitle)")
+            .accessibilityLabel(
+              "Focus pane \(pane.index + 1), \(pane.displayTitle)\(pane.isFocused ? ", focused" : "")"
+            )
+          }
         }
-        .font(.system(size: 11))
-        .foregroundStyle(configuration.tabForeground.color.opacity(0.7))
       }
-      .padding(configuration.horizontalPadding)
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .background(
-        configuration.tabBackground.color,
-        in: RoundedRectangle(cornerRadius: configuration.cornerRadius + 5)
-      )
-      .overlay {
-        RoundedRectangle(cornerRadius: configuration.cornerRadius + 5)
-          .strokeBorder(
-            isDropTarget
-              ? configuration.selectedBorderColor.color
-              : (session.isSelected
-                ? configuration.selectedBorderColor.color : configuration.borderColor.color),
-            lineWidth: isDropTarget || session.isSelected ? 2 : 1
-          )
+
+      if let stackName = session.stackName {
+        Label(stackName, systemImage: "square.stack.3d.up")
+          .font(.system(size: 11, weight: .medium))
+          .foregroundStyle(configuration.tabForeground.color.opacity(0.7))
+          .lineLimit(1)
       }
-      .foregroundStyle(configuration.tabForeground.color)
     }
-    .buttonStyle(.plain)
+    .padding(configuration.horizontalPadding)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .background(
+      configuration.tabBackground.color,
+      in: RoundedRectangle(cornerRadius: configuration.cornerRadius + 5)
+    )
+    .overlay {
+      RoundedRectangle(cornerRadius: configuration.cornerRadius + 5)
+        .strokeBorder(
+          isDropTarget
+            ? configuration.selectedBorderColor.color
+            : (session.isSelected
+              ? configuration.selectedBorderColor.color : configuration.borderColor.color),
+          lineWidth: isDropTarget || session.isSelected ? 2 : 1
+        )
+    }
+    .foregroundStyle(configuration.tabForeground.color)
     .contextMenu {
       Menu("Choose Session Icon") {
         Section("System icons") {

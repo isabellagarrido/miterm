@@ -185,12 +185,144 @@ struct TerminalColorTheme: Codable, Equatable, Identifiable {
     var background: WorkspaceColor
     var foreground: WorkspaceColor
     var cursor: WorkspaceColor
+    var cursorText: WorkspaceColor?
     var selectionBackground: WorkspaceColor
     var selectionForeground: WorkspaceColor
     var palette: [WorkspaceColor]
 
     static let gruvboxMaterialID = "gruvbox-material-dark-medium"
     static let workspaceDefaultID = "workspace-default"
+
+    /// Cozy presets are available independently from workspace chrome. Selecting
+    /// "Use appearance theme" follows the active appearance; these IDs let users
+    /// pair or mix terminal colors with any workspace theme.
+    static let cozyPresets: [TerminalColorTheme] = [
+        TerminalColorTheme(
+            id: "raspberry-cream", name: "Raspberry Cream",
+            background: .init(hex: 0xfff6d8), foreground: .init(hex: 0x63233a),
+            cursor: .init(hex: 0xa00046), cursorText: .init(hex: 0xfff6d8),
+            selectionBackground: .init(hex: 0xe8c5cf),
+            selectionForeground: .init(hex: 0x63233a),
+            palette: [
+                0x49343a, 0xa00046, 0x496b45, 0x986000, 0x355b8c, 0x7c458b, 0x2d6f70, 0x63233a,
+                0x765d60, 0xc83268, 0x59774e, 0x9b6300, 0x51709f, 0x8e5d98, 0x3b7878, 0x7d3e50,
+            ].map(WorkspaceColor.init(hex:))
+        ),
+        TerminalColorTheme(
+            id: "cambridge-sunset", name: "Cambridge Sunset",
+            background: .init(hex: 0xfbebd7), foreground: .init(hex: 0x622c30),
+            cursor: .init(hex: 0xb6192b), cursorText: .init(hex: 0xfbebd7),
+            selectionBackground: .init(hex: 0xe9c6ba),
+            selectionForeground: .init(hex: 0x622c30),
+            palette: [
+                0x49383a, 0xa33037, 0x4b704e, 0x915f2a, 0x426785, 0x835878, 0x367371, 0x622c30,
+                0x7b6260, 0xb44445, 0x56714e, 0x8b6130, 0x4d6e85, 0x865d78, 0x3c7370, 0x784347,
+            ].map(WorkspaceColor.init(hex:))
+        ),
+        TerminalColorTheme(
+            id: "forest-market", name: "Forest Market",
+            background: .init(hex: 0x213c2a), foreground: .init(hex: 0xf7eac9),
+            cursor: .init(hex: 0xffca32), cursorText: .init(hex: 0x213c2a),
+            selectionBackground: .init(hex: 0x4c633d),
+            selectionForeground: .init(hex: 0xfff5d9),
+            palette: [
+                0x909993, 0xf28078, 0xa4c66a, 0xffca32, 0x78aeda, 0xcf91bc, 0x71c4ad, 0xe8d9b7,
+                0x9da7a0, 0xff9183, 0xc3e584, 0xffdf68, 0x9bc8ef, 0xe0add0, 0x91ddc4, 0xfff3d2,
+            ].map(WorkspaceColor.init(hex:))
+        ),
+        TerminalColorTheme(
+            id: "crimson-orchard", name: "Crimson Orchard",
+            background: .init(hex: 0x401f29), foreground: .init(hex: 0xf8d8d3),
+            cursor: .init(hex: 0xf7b6b8), cursorText: .init(hex: 0x401f29),
+            selectionBackground: .init(hex: 0x6c3b49),
+            selectionForeground: .init(hex: 0xfff0ec),
+            palette: [
+                0x909993, 0xda7379, 0x83a66a, 0xc8a839, 0x7598b9, 0xc27f95, 0x72a59a, 0xe7c8c5,
+                0x9da7a0, 0xf17c7e, 0xa4c483, 0xdfc45b, 0x91b2d0, 0xd695aa, 0x8bc0b4, 0xffe7e2,
+            ].map(WorkspaceColor.init(hex:))
+        ),
+        TerminalColorTheme(
+            id: "terracotta-evening", name: "Terracotta Evening",
+            background: .init(hex: 0x35271f), foreground: .init(hex: 0xf3dec0),
+            cursor: .init(hex: 0xe6a25d), cursorText: .init(hex: 0x35271f),
+            selectionBackground: .init(hex: 0x604634),
+            selectionForeground: .init(hex: 0xfff0d9),
+            palette: [
+                0x909993, 0xd57a64, 0x8da15b, 0xd89b43, 0x7698a4, 0xba867e, 0x74a08c, 0xe1c8a6,
+                0x9da7a0, 0xec8264, 0xa8b970, 0xefb65e, 0x8fb1bb, 0xcd938a, 0x91baa5, 0xfff0d9,
+            ].map(WorkspaceColor.init(hex:))
+        ),
+        TerminalColorTheme(
+            id: "retro-pop", name: "Retro Pop",
+            background: .init(hex: 0xfff1bf), foreground: .init(hex: 0x472d48),
+            cursor: .init(hex: 0x5e65b3), cursorText: .init(hex: 0xffffff),
+            selectionBackground: .init(hex: 0xd9d8fa),
+            selectionForeground: .init(hex: 0x472d48),
+            palette: [
+                0x443445, 0xc43a3d, 0x4f7648, 0x896700, 0x525baf, 0x914d86, 0x287478, 0x472d48,
+                0x746171, 0xbb4440, 0x517543, 0x85690d, 0x5e65b3, 0x935988, 0x2f7777, 0x67425f,
+            ].map(WorkspaceColor.init(hex:))
+        ),
+    ]
+
+    /// Extra terminal palettes designed to pair with a different workspace
+    /// appearance, adding contrast and color without changing the chrome theme.
+    static let pairingPresets: [TerminalColorTheme] = [
+        TerminalColorTheme(
+            id: "midnight-garden", name: "Midnight Garden",
+            background: .init(hex: 0x241d2c), foreground: .init(hex: 0xf5eadb),
+            cursor: .init(hex: 0xf39b08), cursorText: .init(hex: 0x241d2c),
+            selectionBackground: .init(hex: 0x514158), selectionForeground: .init(hex: 0xfff6e7),
+            palette: [
+                0x554958, 0xe36a82, 0x89a86b, 0xe9b44c, 0x729ab8, 0xb18ac4, 0x62aaa1, 0xe8d8c4,
+                0x807284, 0xf0788e, 0xa8c77e, 0xf3c66a, 0x91b5d0, 0xc7a2d6, 0x7bc5b5, 0xfff2df,
+            ].map(WorkspaceColor.init(hex:))
+        ),
+        TerminalColorTheme(
+            id: "poolside", name: "Poolside",
+            background: .init(hex: 0x20283a), foreground: .init(hex: 0xf8ead8),
+            cursor: .init(hex: 0x4cc9c0), cursorText: .init(hex: 0x20283a),
+            selectionBackground: .init(hex: 0x3c5268), selectionForeground: .init(hex: 0xfff4e7),
+            palette: [
+                0x47505e, 0xf07868, 0x83b879, 0xe9bd55, 0x67b3d2, 0xc08ab0, 0x4cc9c0, 0xe5d9c9,
+                0x707b8b, 0xff9480, 0xa1d28d, 0xf7d16b, 0x7bc7df, 0xd098bf, 0x78ded1, 0xfff2df,
+            ].map(WorkspaceColor.init(hex:))
+        ),
+        TerminalColorTheme(
+            id: "berry-soda", name: "Berry Soda",
+            background: .init(hex: 0x292033), foreground: .init(hex: 0xf7e8dc),
+            cursor: .init(hex: 0xffca32), cursorText: .init(hex: 0x292033),
+            selectionBackground: .init(hex: 0x55405e), selectionForeground: .init(hex: 0xfff2e8),
+            palette: [
+                0x51495b, 0xf06b83, 0x9bc477, 0xf0bd4e, 0x6da7d5, 0xc07bb7, 0x58c5b8, 0xe4d5ca,
+                0x7a7185, 0xff879c, 0xb8db8b, 0xffd36a, 0x8bc3ec, 0xd99bce, 0x79dfd0, 0xfff1e8,
+            ].map(WorkspaceColor.init(hex:))
+        ),
+        TerminalColorTheme(
+            id: "wildflower", name: "Wildflower",
+            background: .init(hex: 0x202a39), foreground: .init(hex: 0xf5e9d6),
+            cursor: .init(hex: 0xf18b65), cursorText: .init(hex: 0x202a39),
+            selectionBackground: .init(hex: 0x3e5060), selectionForeground: .init(hex: 0xfff4e2),
+            palette: [
+                0x48515c, 0xe97768, 0x91ad67, 0xd6a64e, 0x7fa1d0, 0xc08cb2, 0x62a995, 0xe5d6c3,
+                0x737e8a, 0xff927c, 0xb0c980, 0xf1bf62, 0x91addb, 0xd39ac0, 0x7ac9ad, 0xfff2df,
+            ].map(WorkspaceColor.init(hex:))
+        ),
+        TerminalColorTheme(
+            id: "harvest", name: "Harvest",
+            background: .init(hex: 0x302536), foreground: .init(hex: 0xf8e8d2),
+            cursor: .init(hex: 0x57c4be), cursorText: .init(hex: 0x302536),
+            selectionBackground: .init(hex: 0x594453), selectionForeground: .init(hex: 0xfff3df),
+            palette: [
+                0x554752, 0xf27260, 0x83a85e, 0xe5b44d, 0x759ac9, 0xc08ab0, 0x50aaa5, 0xe7d2b5,
+                0x7c6a7b, 0xff7c66, 0xa6c77a, 0xf4cc65, 0x83aad8, 0xc994b8, 0x70c6bd, 0xfff0dc,
+            ].map(WorkspaceColor.init(hex:))
+        ),
+    ]
+
+    static var builtInThemes: [TerminalColorTheme] {
+        [.gruvboxMaterialDarkMedium] + cozyPresets + pairingPresets
+    }
 
     /// Colors are based on the Gruvbox Material VS Code theme's Dark Medium Material variant.
     /// Source: https://github.com/sainnhe/gruvbox-material-vscode (MIT licensed).
@@ -211,13 +343,14 @@ struct TerminalColorTheme: Codable, Equatable, Identifiable {
     )
 
     var configOverlay: String {
-        let primary = [
+        var primary = [
             "background = #\(background.hexString)",
             "foreground = #\(foreground.hexString)",
             "cursor-color = #\(cursor.hexString)",
-            "selection-background = #\(selectionBackground.hexString)",
-            "selection-foreground = #\(selectionForeground.hexString)",
         ]
+        if let cursorText { primary.append("cursor-text = #\(cursorText.hexString)") }
+        primary.append("selection-background = #\(selectionBackground.hexString)")
+        primary.append("selection-foreground = #\(selectionForeground.hexString)")
         let colors = palette.enumerated().map { "palette = \($0.offset)=#\($0.element.hexString)" }
         return (primary + colors).joined(separator: "\n") + "\n"
     }
@@ -226,13 +359,33 @@ struct TerminalColorTheme: Codable, Equatable, Identifiable {
         let defaults = UserDefaults.ghostty
         guard let id = defaults.string(forKey: TerminalColorThemeStore.activeThemeKey),
               id != workspaceDefaultID else { return nil }
-        if id == gruvboxMaterialID { return gruvboxMaterialDarkMedium }
+        if let builtInTheme = builtInThemes.first(where: { $0.id == id }) { return builtInTheme }
         guard let data = defaults.data(forKey: TerminalColorThemeStore.customThemesKey),
               let themes = try? JSONDecoder().decode([TerminalColorTheme].self, from: data) else {
             return nil
         }
         return themes.first { $0.id == id }
     }
+}
+
+struct CozyThemePairing: Identifiable {
+    let id: String
+    let name: String
+    let detail: String
+    let appearance: WorkspaceTabTheme
+    let terminalThemeID: String
+
+    var terminalTheme: TerminalColorTheme {
+        TerminalColorTheme.pairingPresets.first { $0.id == terminalThemeID }!
+    }
+
+    static let all: [CozyThemePairing] = [
+        .init(id: "raspberry-midnight", name: "Raspberry Cream + Midnight Garden", detail: "Warm stationery with a jewel-toned terminal.", appearance: .raspberryCream, terminalThemeID: "midnight-garden"),
+        .init(id: "cambridge-poolside", name: "Cambridge Sunset + Poolside", detail: "Peach and burgundy chrome with crisp aquatic color.", appearance: .cambridgeSunset, terminalThemeID: "poolside"),
+        .init(id: "forest-berry", name: "Forest Market + Berry Soda", detail: "Deep forest surfaces with playful berry brights.", appearance: .forestMarket, terminalThemeID: "berry-soda"),
+        .init(id: "terracotta-wildflower", name: "Terracotta Evening + Wildflower", detail: "Earthy chrome with a lively blue terminal.", appearance: .terracottaEvening, terminalThemeID: "wildflower"),
+        .init(id: "retro-harvest", name: "Retro Pop + Harvest", detail: "Sunny tabs paired with rich vintage terminal colors.", appearance: .retroPop, terminalThemeID: "harvest"),
+    ]
 }
 
 @MainActor
@@ -246,7 +399,7 @@ final class TerminalColorThemeStore: ObservableObject {
     @Published private(set) var previewTheme: TerminalColorTheme?
 
     var availableThemes: [TerminalColorTheme] {
-        [.gruvboxMaterialDarkMedium] + customThemes
+        TerminalColorTheme.builtInThemes + customThemes
     }
 
     private init() {
@@ -270,7 +423,8 @@ final class TerminalColorThemeStore: ObservableObject {
 
     func save(_ theme: TerminalColorTheme, replacingID: String? = nil) -> String {
         var savedTheme = theme
-        let protectedIDs = [TerminalColorTheme.workspaceDefaultID, TerminalColorTheme.gruvboxMaterialID]
+        let protectedIDs = [TerminalColorTheme.workspaceDefaultID]
+            + TerminalColorTheme.builtInThemes.map(\.id)
         if protectedIDs.contains(savedTheme.id) {
             savedTheme.id = UUID().uuidString
         }
@@ -396,6 +550,118 @@ struct WorkspaceThemeConfiguration: Codable, Equatable {
                 horizontalPadding: 12,
                 verticalPadding: 8,
                 cornerRadius: 5
+            )
+        case .amethyst:
+            .init(
+                baseTheme: theme,
+                tabBackground: .init(hex: 0x282137),
+                tabForeground: .init(hex: 0xd8cde8),
+                selectedTabBackground: .init(hex: 0x3d3052),
+                selectedTabForeground: .init(hex: 0xfbf7ff),
+                borderColor: .init(hex: 0x453a59),
+                selectedBorderColor: .init(hex: 0xc084fc),
+                font: .system,
+                fontSize: 13,
+                spacing: 6,
+                horizontalPadding: 12,
+                verticalPadding: 8,
+                cornerRadius: 9
+            )
+        case .raspberryCream:
+            .init(
+                baseTheme: theme,
+                tabBackground: .init(hex: 0xf9e8b8),
+                tabForeground: .init(hex: 0x63233a),
+                selectedTabBackground: .init(hex: 0xfff0cc),
+                selectedTabForeground: .init(hex: 0x63233a),
+                borderColor: .init(hex: 0xd9c99d),
+                selectedBorderColor: .init(hex: 0xa00046),
+                font: .serif,
+                fontSize: 13,
+                spacing: 7,
+                horizontalPadding: 13,
+                verticalPadding: 8,
+                cornerRadius: 9
+            )
+        case .cambridgeSunset:
+            .init(
+                baseTheme: theme,
+                tabBackground: .init(hex: 0xeed8c2),
+                tabForeground: .init(hex: 0x622c30),
+                selectedTabBackground: .init(hex: 0xf9e6d5),
+                selectedTabForeground: .init(hex: 0x622c30),
+                borderColor: .init(hex: 0xd3bca7),
+                selectedBorderColor: .init(hex: 0xb6192b),
+                font: .serif,
+                fontSize: 13,
+                spacing: 7,
+                horizontalPadding: 13,
+                verticalPadding: 8,
+                cornerRadius: 9
+            )
+        case .forestMarket:
+            .init(
+                baseTheme: theme,
+                tabBackground: .init(hex: 0x2c4b34),
+                tabForeground: .init(hex: 0xe8d9b7),
+                selectedTabBackground: .init(hex: 0x3b5b3e),
+                selectedTabForeground: .init(hex: 0xfff3d2),
+                borderColor: .init(hex: 0x4d6846),
+                selectedBorderColor: .init(hex: 0xffca32),
+                font: .system,
+                fontSize: 13,
+                spacing: 6,
+                horizontalPadding: 12,
+                verticalPadding: 8,
+                cornerRadius: 9
+            )
+        case .crimsonOrchard:
+            .init(
+                baseTheme: theme,
+                tabBackground: .init(hex: 0x542a36),
+                tabForeground: .init(hex: 0xe7c8c5),
+                selectedTabBackground: .init(hex: 0x693947),
+                selectedTabForeground: .init(hex: 0xffe7e2),
+                borderColor: .init(hex: 0x754756),
+                selectedBorderColor: .init(hex: 0xf7b6b8),
+                font: .serif,
+                fontSize: 13,
+                spacing: 6,
+                horizontalPadding: 12,
+                verticalPadding: 8,
+                cornerRadius: 9
+            )
+        case .terracottaEvening:
+            .init(
+                baseTheme: theme,
+                tabBackground: .init(hex: 0x49352a),
+                tabForeground: .init(hex: 0xe1c8a6),
+                selectedTabBackground: .init(hex: 0x5a4130),
+                selectedTabForeground: .init(hex: 0xfff0d9),
+                borderColor: .init(hex: 0x6d523a),
+                selectedBorderColor: .init(hex: 0xe6a25d),
+                font: .system,
+                fontSize: 13,
+                spacing: 6,
+                horizontalPadding: 12,
+                verticalPadding: 8,
+                cornerRadius: 9
+            )
+        case .retroPop:
+            .init(
+                baseTheme: theme,
+                tabBackground: .init(hex: 0xf7e2a4),
+                tabForeground: .init(hex: 0x472d48),
+                selectedTabBackground: .init(hex: 0xffefc1),
+                selectedTabForeground: .init(hex: 0x472d48),
+                borderColor: .init(hex: 0xd9c787),
+                selectedBorderColor: .init(hex: 0x6268d5),
+                font: .system,
+                fontSize: 13,
+                spacing: 6,
+                horizontalPadding: 12,
+                verticalPadding: 8,
+                cornerRadius: 9
             )
         }
     }
